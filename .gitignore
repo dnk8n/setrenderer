@@ -1,0 +1,7 @@
+.venv/
+work/
+out/
+__pycache__/
+*.egg-info/
+.cache/
+previews/
