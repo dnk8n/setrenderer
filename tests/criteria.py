@@ -42,7 +42,7 @@ def sh(cmd, **kw):
 
 
 def render(audio, out, *extra):
-    sh([BIN, "render", str(audio), "-o", str(out), *extra])
+    sh([BIN, "render", str(audio), "-o", str(out), "--cpu", "3", *extra])
     return out
 
 

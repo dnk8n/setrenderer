@@ -304,6 +304,18 @@ def cmd_verify(args) -> int:
     return 0 if rep.get("pass") else 1
 
 
+class _Help(argparse.HelpFormatter):
+    """Show every option's default, including unset ones."""
+    def _get_help_string(self, action):
+        h = action.help or ""
+        if "default" in h or action.default is argparse.SUPPRESS:
+            return h
+        if action.option_strings:
+            d = {None: "none", False: "off", True: "on"}.get(action.default, "%(default)s")
+            h += f" (default: {d})"
+        return h
+
+
 def _kw(s: str | None) -> list[str]:
     return [k.strip().lower() for k in (s or "").split(",") if k.strip()]
 
@@ -326,10 +338,10 @@ def _common(p, render=True):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="setrender", description="Beat-synced music visualisation videos from DJ sets.",
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                                 formatter_class=_Help)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    r = sub.add_parser("render", help="render a video", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    r = sub.add_parser("render", help="render a video", formatter_class=_Help)
     _common(r)
     r.add_argument("--resolution", default="1080p", help="720p, 1080p, 1440p, 2160p or WxH")
     r.add_argument("--quality", default="youtube", choices=["draft", "youtube", "high", "lossless"],
@@ -348,7 +360,7 @@ def main(argv=None) -> int:
     r.add_argument("--dry-run", action="store_true", help="print the plan and size estimate only")
     r.set_defaults(func=cmd_render)
 
-    s = sub.add_parser("still", help="render preview PNG(s) at given times")
+    s = sub.add_parser("still", help="render preview PNG(s) at given times", formatter_class=_Help)
     _common(s)
     s.add_argument("--at", default="30", help="comma-separated times in seconds")
     s.set_defaults(func=cmd_still)

@@ -18,20 +18,20 @@ Turn a DJ set (WAV/AIFF) into a beat-synced, YouTube-ready music video, styled b
 | Decode | ffmpeg (soxr resampler) | any bit depth / rate / channel count |
 | Analysis | librosa + numpy/scipy | 5 frequency bands, onsets, kick-weighted beat tracking in 90 s chunks (follows tempo drift), bars, sections (self-similarity novelty), set fingerprint. Cached in `~/.cache/setrender`. |
 | Scene | pygame-ce (SDL) | pixel art at 480x270, every frame a pure function of the frame index, so rendering is deterministic and parallel |
-| Encode | ffmpeg / x264 | nearest-neighbour upscale, CRT scanlines, H.264 High 4:2:0 BT.709, closed GOP, faststart, lossless PCM audio in MOV |
+| Encode | ffmpeg + Apple VideoToolbox (media engine) | nearest-neighbour upscale, CRT scanlines, H.264 High 4:2:0 BT.709, closed GOP, faststart, lossless PCM audio in MOV; `--encoder x264` for software encoding |
 
-`--jobs N` splits the video into GOP-aligned segments rendered in parallel and joins them without re-encoding.
+Rendering is split into 60 s chunks (`--chunk`), each written atomically, so an interrupted render resumes when you rerun the same command. `--cpu 7` (default) caps jobs and encoder threads to roughly that load average; `--nice` lowers priority.
 
 ## Output presets
 
 | `--quality` | Video | Audio (default) | Use |
 |---|---|---|---|
-| `youtube` (default) | H.264 CRF 16 | PCM, bit-identical to source | upload |
+| `youtube` (default) | H.264, VideoToolbox q70 (or x264 CRF 16) | PCM, bit-identical to source | upload |
 | `high` | H.264 CRF 12, preset medium | PCM | archival-ish upload |
 | `draft` | H.264 CRF 26, veryfast | PCM | quick checks |
 | `lossless` | FFV1 RGB in MKV | PCM | clips/masters (very large) |
 
-`--audio-codec aac` gives a small MP4; `--encoder vt` uses the Apple VideoToolbox hardware encoder; `--resolution 1440p|2160p` for higher-res uploads (the pixel art scales by integer factors at 1080p and 2160p). The CLI estimates output size and refuses to start without enough disk (`--force` overrides).
+`--audio-codec aac` gives a small MP4; `--encoder x264` uses the software encoder (better per bit, much more CPU); `--resolution 1440p|2160p` for higher-res uploads (the pixel art scales by integer factors at 1080p and 2160p). The CLI estimates output size and refuses to start without enough disk (`--force` overrides).
 
 ## Templates
 
