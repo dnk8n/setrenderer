@@ -203,7 +203,7 @@ class Events:
                 spec = ((6.0, 1.6, 3.5), (5.0, 1.0, -1.0), 55)
             elif k == "balloon":
                 spec = ((0.0, 1.6, 10.0), (0.0, 45.0, -80.0), 60)
-            if spec is None or e.t0 - last < 25 or rng.random() > 0.8:
+            if spec is None or e.t0 - last < 20 or rng.random() > 0.9:
                 continue
             t0 = e.t0 + (bar if e.t1 - e.t0 > 3 * bar else 0.0)
             t1 = min(e.t1, t0 + min(2.5 * bar, 8.0))
@@ -685,6 +685,9 @@ class Events:
             if e.kind == "drop":
                 if age < 2.5 / self.sc.fps and e.p.get("strength", 0) > 0.4:
                     out["invert"] = 1.0
+                bar = 4 * 60 / max(c.bpm, 60)
+                if age < bar:
+                    out["speed"] = max(out.get("speed", 0.0), (1 - age / bar) * (0.6 + 0.4 * e.p.get("strength", 0.5)))
                 out["ca"] = max(out["ca"], 0.012 * max(0.0, 1 - age / 1.5))
             elif e.kind == "filter":
                 a = min(1.0, age / 0.5, (e.t1 - c.t) / 0.5)

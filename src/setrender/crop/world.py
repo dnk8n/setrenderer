@@ -80,6 +80,8 @@ class World:
         self.chickens = [{"x": float(rng.uniform(-10, 10)), "z": float(rng.uniform(6, 13)), "ph": float(rng.random()),
                           "sp": float(rng.uniform(0.3, 0.8))} for _ in range(int(el.get("chickens", {}).get("count", 6)))]
         self.flag_sched = self._flag_schedule()
+        self.char_cb = None
+        self.n_cast = 1
 
     # ------------------------------------------------------------------ static geometry
     def _add(self, mesh, m, tint=(1, 1, 1), mat=0, emis=(0, 0, 0), sway=0.0, extra=(0, 0, 0, 0)):
@@ -149,7 +151,6 @@ class World:
             p = LOO_POS + np.array([0, 0, k * 1.45])
             self._add("box", A(tuple(p), (1.3, 2.3, 1.3)), (0.15, 0.35, 0.8), 0)
             self._add("box", A(tuple(p + [0, 2.3, 0]), (1.4, 0.12, 1.4)), (0.85, 0.85, 0.9), 0)
-            self._add("box", A(tuple(p + [-0.66, 0.1, 0]), (0.02, 2.0, 1.0)), (0.12, 0.3, 0.7), 0)
         B = BAR_POS
         self._add("box", A(tuple(B), (5.0, 1.05, 1.2)), (0.45, 0.3, 0.18), 4)
         for sx in (-2.4, 2.4):
@@ -405,6 +406,7 @@ class World:
     # ================================================================== per frame
     def frame(self, c: Ctx, P: Parts, at_rects: dict):
         self._car(c, P)
+        self._loos(c, P)
         self._stage(c, P, at_rects)
         self._trees(c, P)
         self._fairy_lights(c, P)
@@ -470,6 +472,23 @@ class World:
             P.dot(apply(T, (0, 0.06, sz)) + [0, 0.02, 0], 1.3, tuple(v * (0.15 + 0.45 * c.env["bass"]) for v in ug), soft=2.0)
         P.point(tuple(apply(T, (0, 0.1, 0))), ug, 0.6 + 1.2 * c.env["bass"], 4.0)
         self.car_T = T
+
+    def _loos(self, c: Ctx, P: Parts):
+        """Portaloo doors fly open on the beat now and then, and somebody pops out."""
+        beat_in_bar = c.bar_frac * 4
+        for k in range(4):
+            p = LOO_POS + np.array([0, 0, k * 1.45])
+            ang = 0.0
+            if (c.bar_idx + k * 3) % 8 == 0:
+                x = beat_in_bar / 2.5
+                ang = 1.35 * math.sin(math.pi * min(1.0, x)) if x < 1 else 0.0
+            hinge = np.array([p[0] - 0.66, 0.1, p[2] - 0.5])
+            door = compose(A(tuple(hinge), (1, 1, 1), (0, ang, 0)), A((0, 0, 0.5), (0.04, 2.0, 1.0)))
+            P.m("box", door, (0.12, 0.3, 0.7), 0)
+            if ang > 0.6 and self.char_cb is not None:
+                ci = (c.bar_idx * 7 + k * 13) % self.n_cast
+                pose = "hands_up" if (c.bar_idx // 8 + k) % 2 else "wave"
+                self.char_cb(P, ci, pose, (p[0] - 0.75, 0.0, p[2]), face=(-1.0, 0.0))
 
     def _stage(self, c: Ctx, P: Parts, at_rects):
         # speaker cones

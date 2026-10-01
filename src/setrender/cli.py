@@ -135,7 +135,7 @@ def cmd_render(args) -> int:
     bands = cfg.get("bands")
     an, ah, cpath = get_analysis(src, args.start, args.duration, bands, args.no_cache)
     from . import scenes
-    scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
+    engine_info = scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
     seed = make_seed(args.seed, ah, cfg, args.start)
     title = _title(src, args.title)
     n_frames = int(round(an.duration * fps))
@@ -216,6 +216,7 @@ def cmd_render(args) -> int:
         "template": {k: v for k, v in cfg.items() if not k.startswith("_")},
         "template_path": cfg.get("_template_path"),
         "tools": encode.tool_versions(),
+        "engine": engine_info,
         "reproduce": _repro_cmd(args),
     }
     Path(str(out) + ".json").write_text(json.dumps(sidecar, indent=2, default=str))

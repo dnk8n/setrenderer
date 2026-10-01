@@ -206,7 +206,7 @@ class Director:
         elif kind == "car":
             p.setdefault("pos", np.array([float(rng.uniform(-4.5, -2.0)), float(rng.uniform(1.0, 1.7)), float(rng.uniform(-9.5, -7.0))]))
         elif kind == "loo":
-            p.setdefault("pos", np.array([LOO_POS[0] - 4.5, 1.62, LOO_POS[2] + float(rng.uniform(0, 4))]))
+            p.setdefault("pos", np.array([LOO_POS[0] - float(rng.uniform(2.4, 3.4)), 1.62, LOO_POS[2] + float(rng.uniform(6.0, 7.5))]))
         elif kind == "bar":
             p.setdefault("pos", np.array([-12.5, 1.62, 12.5 + float(rng.uniform(-1, 2))]))
         return Shot(t0, t1, kind, seed, p)
@@ -342,11 +342,11 @@ class Director:
             fov = 58 - 4 * kick_pump
         elif sh.kind == "loo":
             pos = sh.p["pos"] + np.array([0, 0.02 * math.sin(c.t), 0])
-            yaw, pitch = look(pos, LOO_POS + np.array([0, 1.2, 2.2]))
+            yaw, pitch = look(pos, LOO_POS + np.array([-0.8, 1.1, 1.8]))
             yaw += bar_step(sh.seed, 0.25)
             fov = 64
         elif sh.kind == "bar":
-            pos = sh.p["pos"].copy()
+            pos = sh.p["pos"] + np.array([math.sin(c.t * 0.31) * 0.2, 0.03 * math.sin(c.t * 1.1), math.cos(c.t * 0.27) * 0.15])
             yaw, pitch = look(pos, np.array([0.0, 2.0, -12.0]))
             yaw += bar_step(sh.seed, 0.4)
             fov = 64

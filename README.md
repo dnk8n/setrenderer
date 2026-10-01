@@ -5,6 +5,7 @@ Turn a DJ set (WAV/AIFF) into a beat-synced, YouTube-ready music video, styled b
 ```bash
 ./install.sh                                   # ffmpeg via Homebrew + local venv
 .venv/bin/setrender render my_set.wav          # whole set -> out/my_set.knisper.mov
+.venv/bin/setrender render my_set.wav -t cropcircle   # first-person 3D farm festival (GPU)
 .venv/bin/setrender render my_set.wav --start 600 --duration 30   # preview a slice
 .venv/bin/setrender still my_set.wav --at 60,600,3600             # PNG snapshots
 .venv/bin/setrender templates                  # list templates and their keywords
@@ -47,6 +48,28 @@ Precedence: template < `--params` < `--keywords` < `--set`. Every render writes 
 
 **Why sets look different:** the variation seed combines `--seed` with the audio's SHA-256, so palettes order, sky/floor style per section, crowd make-up, trees and jellyfish all differ per set. The set's key rotates the starting palette, and its tempo, energy and section structure drive the motion.
 
+## Templates in the box
+
+| Template | Engine | Look |
+|---|---|---|
+| `knisper` | pygame (CPU), 480x270 pixel art | 8-bit underground rave: burned-out car stage, jellyfish trees, bouncing crowd, C64/Amiga/Mega Drive/N64/NES nods |
+| `cropcircle` | WebGPU on Metal (GPU), 640x360 HD-2D | first-person night at a farm festival, sunset to sunrise: crop circles, jellyfish in a beat-gusting wind, a car built into the DJ stage, a crowd that comes and goes |
+
+A template picks its scene engine with `engine:` (default: the pygame pixel-art engine).
+
+### cropcircle
+
+| Stage | Tool | Notes |
+|---|---|---|
+| Extra analysis | Apple SoundAnalysis built-in classifier (Core ML, on-device; Neural Engine capable), librosa, scipy | 303 sound classes every 1.5 s (cowbell, theremin, sax, vocals, scratching, laughter, phones...), LUFS (BS.1770 K-weighting), key per window in Camelot notation, 3-band waveform. One pass, about 50 s for a 2 h set, cached next to the analysis. |
+| Scene | wgpu (WebGPU, Metal backend) | supersampled HDR 3D: instanced corn (30k plants) with crop circles laid in the vertex shader, low-poly farm, pixel-art billboards (front, back and side views), additive volumetric beams, height fog, bloom, ACES, 5-bit ordered dither, console filters |
+| Direction | numpy | crowd schedules (arrive, dance, queue, sit, leave), camera shots cut on phrases and drops, events triggered by structure, sounds and bar numbers. Every frame is still a pure function of its index. |
+| Encode | same as above | 640x360 upscaled 3x to 1080p, VideoToolbox q60 by default for this template |
+
+It renders at about 150–190 fps with three jobs (`--cpu 7`), so a 2 h set takes about 45 minutes. The only text on screen is tempo and music stats: BPM, bar.beat, phrase, Camelot key, LUFS, a five-band meter and a CDJ-style waveform. Keywords: `aurora`, `anime`, `blocky`, `packed`, `intimate`, `foggy`, `clear`, `frantic`, `chill`, `partytime`, `retro`, `hd`, `smooth`, `nohud`, `dawn`.
+
+Things to look out for: UFOs that lay crop circles through the night (one also turns up whenever the classifier hears a theremin), a cow with a cowbell when the classifier hears one, a sax player when it hears a sax, a vibing cat on the car roof, Tetris played with hay bales, the Konami code at bar 1337, someone missing at bar 404, portaloo doors that fly open on the beat, row-the-boat in long breakdowns, conga lines, YMCA, Pac-Man, a Nyan cat, a dancing hot dog and Game Boy/VHS/CGA filter moments.
+
 ## Completeness
 
-`CRITERIA.md` defines "done". `tests/criteria.py` runs every automated check and writes `work/criteria/report.json`.
+`CRITERIA.md` defines "done" for the CLI and `knisper`; `tests/criteria.py` runs its automated checks and writes `work/criteria/report.json`. `CRITERIA-cropcircle.md` adds the cropcircle brief; `tests/criteria_cropcircle.py [--full out/<render>.mov]` writes `work/criteria-cropcircle/report.json`.

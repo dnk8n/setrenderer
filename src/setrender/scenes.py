@@ -53,4 +53,15 @@ def prepare(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir: Path
     info = extras.info(ex)
     log(f"extras: {info['sound_windows']} sound-classifier windows, keys {', '.join(info['keys'][:4])} …")
     cfg["_clip"] = {"start": float(start), "total": float(total), "extras": str(path)}
-    return {"extras_cache": path.name, "total": total}
+    out = {"name": "cropcircle", "extras_cache": path.name, "set_duration": total,
+           "sound_classifier": ("Apple SoundAnalysis built-in classifier v1 (Core ML, on-device), "
+                                f"{info['sound_classes']} classes, {info['sound_windows']} windows")
+           if info["sound_classes"] else "unavailable"}
+    try:
+        import wgpu
+        a = wgpu.gpu.request_adapter_sync(power_preference="high-performance")
+        out["gpu"] = {k: a.info.get(k) for k in ("device", "backend_type", "adapter_type")}
+        out["wgpu"] = wgpu.__version__
+    except Exception as e:  # noqa: BLE001
+        out["gpu"] = f"unavailable: {e}"
+    return out

@@ -756,6 +756,15 @@ fn scene_at(uv: vec2f) -> vec3f {
     c = mix(c, th, fa);
   }
   if (P.fx.y > 0.001) { c = mix(c, vec3f(1.0) - c.gbr, P.fx.y); } // anime impact frame
+  if (P.bl.z > 0.001) {   // anime speed lines radiating from the centre on a drop
+    let q2 = (in.uv - 0.5) * vec2f(P.res.x / P.res.y, 1.0);
+    let ang = atan2(q2.y, q2.x);
+    let r = length(q2);
+    let cell = floor(ang * 70.0);
+    let on = step(0.86, hash21(vec2f(cell, floor(P.fx2.x * 20.0))));
+    let w = smoothstep(0.22, 0.75, r) * on * P.bl.z;
+    c = mix(c, vec3f(1.0), w * 0.75);
+  }
   // vignette and grain
   let q = in.uv - 0.5;
   c = c * (1.0 - P.lift.w * dot(q, q) * 2.2);

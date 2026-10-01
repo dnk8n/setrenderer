@@ -20,7 +20,7 @@ from .director import Director, h01
 from .events import Events
 from .hud import HUD
 from .parts import Ctx, Parts, hue, hue_np
-from .world import DJ_POS, PLAT_TOP, World
+from .world import DJ_POS, PLAT_TOP, World, path_x
 
 M_PX = 0.045   # metres per sprite pixel
 
@@ -120,6 +120,8 @@ class CropScene:
         lib.add("corn_lo", *M.corn(lod=1))
         self.world = World(np.random.default_rng(rng.integers(1 << 31)), cfg, self.clip_start, self.total, self.struct, self.tinfo)
         self.world._wind_fn = self.wind_at
+        self.world.char_cb = self.char_sprite
+        self.world.n_cast = n_cast
         n_people = int(crowd_cfg.get("count", 110))
         self.crowd = Crowd(np.random.default_rng(rng.integers(1 << 31)), n_people, n_cast, self.clip_start, self.dur,
                            self.total, self.struct, crowd_cfg.get("styles"))
@@ -248,6 +250,7 @@ class CropScene:
         c.cam_pos, c.cam_right = pos, right
         P = Parts()
         self.world.frame(c, P, self.rects)
+        self._rings(c, P, shot)
         self._crowd(c, P, shot)
         self._stage_people(c, P)
         self.events.frame(c, P, self.rects)
@@ -349,6 +352,22 @@ class CropScene:
                     hp = np.array([x[j], y[j] + 2.0 * s[j], z[j]]) + rv * 0.35
                     P.sprite(tuple(hp), 0.22 if em == "bang" else 0.2, 0.42 if em == "bang" else 0.3, self.rects[em], anchor=0.0)
 
+    def _rings(self, c: Ctx, P: Parts, shot):
+        """Golden rings float along the corn path; walking through them collects them."""
+        zs = np.arange(24.0, 84.0, 3.5)
+        cam_z = self._cam_pos[2]
+        corn = shot.kind == "corn"
+        spin = int(c.t * 10) % 4
+        for z in zs:
+            x = float(path_x(z))
+            y = 1.25 + 0.12 * math.sin(z + c.t * 2)
+            if corn and z > cam_z:
+                if z - cam_z < 1.2:   # just collected: a sparkle
+                    k = int((z - cam_z) / 0.4)
+                    P.sprite((x, y, z), 0.5, 0.5, self.rects[f"sparkle{min(2, k)}"], anchor=0.5)
+                continue
+            P.sprite((x, y, z), 0.45, 0.45, self.rects[f"ring{spin}"], anchor=0.5)
+
     def _stage_people(self, c: Ctx, P: Parts):
         dj = self.special["dj"]
         st = self.struct
@@ -446,6 +465,7 @@ class CropScene:
         post[19] = fx.get("hue", 0.0)
         post[20:23] = (self.W, self.H, self.ss)
         post[24:26] = (0.8, 0.6)
+        post[26] = fx.get("speed", 0.0)
         return post
 
     def _hud(self, c: Ctx) -> np.ndarray:
