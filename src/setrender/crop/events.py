@@ -112,7 +112,7 @@ class Events:
                  "filter": 5, "qblocks": 3, "pride_jelly": 5, "creeper": 2, "birds": 2, "goat": 3, "mushrooms": 3,
                  "singalong": 2}
         rates.update(sc.cfg.get("events", {}).get("rates", {}) or {})
-        boost = max(1.0, 600.0 / max(dur, 1.0)) if dur < 600 else 1.0
+        boost = min(3.0, max(1.0, 600.0 / max(dur, 1.0)))   # previews still show a few gags
         phr = [float(x) for x in st.phrases if 0 <= x < dur]
         busy_until = {}
         for t in phr:

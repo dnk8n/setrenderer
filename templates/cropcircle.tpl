@@ -19,6 +19,7 @@ canvas:
   crt: 0.12           # scanline strength at output
   exposure: 1.0
   bloom: 0.85
+  kick_pump: 0.06     # exposure lift on each kick
   grain: 0.0           # temporal grain costs a lot of bitrate; 0 keeps uploads small
   color_levels: 31    # ordered dither to 5 bits per channel (16-bit console colour)
 

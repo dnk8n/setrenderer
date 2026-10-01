@@ -459,6 +459,8 @@ class CropScene:
         hb = self.sec_hue[min(c.section, len(self.sec_hue) - 1)]
         tint = np.array(hue(hb, 0.6, 1.0))
         exp_ = self._exposure * float(get_path(self.cfg, "canvas.exposure", 1.0))
+        if c.kick:   # the whole picture breathes with the kick, whatever the camera is looking at
+            exp_ *= 1.0 + float(get_path(self.cfg, "canvas.kick_pump", 0.06)) * c.env["beat"]
         if self.clip_start < 0.5:          # fade in from black at the start of the set
             exp_ *= min(1.0, c.t / 1.5) ** 2
         if self.clip_start + self.dur >= self.total - 0.5:   # and out at the very end

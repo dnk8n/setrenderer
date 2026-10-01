@@ -140,7 +140,7 @@ def main():
 
 def _c1_c4(fx):
     out = render(fx["setA.wav"], W / "c1.mov")
-    rep = verify.run(out, fx["setA.wav"], 0.0, 60.0)
+    rep = verify.run(out, fx["setA.wav"], 0.0, None)
     c = rep["checks"]
     a11 = {k: v for k, v in c.items() if k.startswith("A11")}
     ok_fmt = all(v for v in a11.values() if isinstance(v, bool)) and c["A11_resolution"] == "1920x1080" and c["A11_fps"] == 60

@@ -309,7 +309,8 @@ class World:
     def _build_crop_circles(self):
         rng = self.rng
         self.crop = CropField(FIELD, 512)
-        n = int(self.el.get("crop_circles", {}).get("count", 8))
+        # about one pattern per quarter of an hour of set, up to the template's count
+        n = min(int(self.el.get("crop_circles", {}).get("count", 8)), max(1, int(round(self.total / 900.0))))
         span = self.total
         # patterns are laid in the night, spread over the set; each takes 16-32 s to draw
         sites = [(-6.0, 58.0), (30.0, 52.0), (-38.0, 48.0), (-50.0, 0.0), (12.0, 80.0), (-30.0, 80.0),
