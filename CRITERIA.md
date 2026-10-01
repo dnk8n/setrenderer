@@ -3,6 +3,8 @@
 Each criterion is checked by an automated test (`A`) or a human checklist (`H`).
 A release is "complete" when every `A` passes and every `H` is ticked.
 
+Template-specific criteria for cropcircle.tpl are in CRITERIA-cropcircle.md.
+
 ## 1. Interface
 - A1. `setrender render <audio>` works with no other arguments (template `knisper.tpl` and every parameter defaulted).
 - A2. Accepts WAV and AIFF: 16/24/32-bit, 44.1/48/96 kHz, mono or stereo.
