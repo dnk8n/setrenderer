@@ -17,8 +17,17 @@ platformdirs==4.12.2
 pooch==1.9.0
 pycparser==3.0
 pygame-ce==2.5.8
+pyobjc-core==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-avfoundation==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-cocoa==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-coreaudio==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-coremedia==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-quartz==12.2.2 ; sys_platform == 'darwin'
+pyobjc-framework-soundanalysis==12.2.2 ; sys_platform == 'darwin'
 pyyaml==6.0.3
+rendercanvas==2.7.2
 requests==2.34.2
+rubicon-objc==0.5.7 ; sys_platform == 'darwin'
 scikit-learn==1.9.1
 scipy==1.18.1
 soundfile==0.14.0
@@ -26,3 +35,4 @@ soxr==1.1.0
 threadpoolctl==3.7.0
 typing-extensions==4.16.0
 urllib3==2.8.0
+wgpu==0.32.0
