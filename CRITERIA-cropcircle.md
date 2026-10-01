@@ -29,7 +29,7 @@ test (`C`) or a human checklist (`H`). It is complete when every `C` passes and 
 - C11. Identity flags appear and disappear. Over the full set there are at least 20 flag changes on the poles and at least 5 times the bunting goes up and comes down. All 12 identity flags in the cast are shown at least once.
 
 ## 7. Jokes, easter eggs and the Neural Engine
-- C12. The on-device sound classifier (Core ML) covers the whole set with at least one result every 2 s. At least 8 distinct sound-triggered gags are scheduled for the Knisper set, and each starts within 2 s of the sound the classifier heard.
+- C12. The on-device sound classifier (Core ML) covers the whole set with at least one result every 2 s, and the HUD waveform spans the set to within 0.5 s, so it stays on the beat grid. At least 8 distinct sound-triggered gags are scheduled for the Knisper set, and each starts within 2 s of the sound the classifier heard.
 - C13. At least 25 distinct kinds of event happen over the full set, and at least 60% of the gags that can be framed get a camera shot that shows them.
 
 ## 8. Distinct, reproducible, resumable, fast enough

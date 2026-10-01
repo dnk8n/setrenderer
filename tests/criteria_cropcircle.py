@@ -319,7 +319,10 @@ def _full_set_checks(set_audio):
         if snd:
             lat.append(e.t0 - (snd[0].t0 + 1.5))
     lat = np.array(lat)
-    rec("C12", gaps <= 2.0 and cover and len(kinds12) >= 8 and (np.abs(lat) <= 2.0).all(),
+    wave_s = len(ex.get("wave", [])) / float(ex.get("rate", 1.0))
+    wave_ok = abs(wave_s - float(ex.get("duration", 0.0))) <= 0.5   # HUD waveform stays on the beat grid
+    rec("C12", gaps <= 2.0 and cover and len(kinds12) >= 8 and (np.abs(lat) <= 2.0).all() and wave_ok,
+        waveform_seconds=round(wave_s, 2), set_seconds=round(float(ex.get("duration", 0.0)), 2),
         classifier_windows=int(len(sa_t)), max_gap_s=round(gaps, 2), covers_set=cover,
         sound_gag_kinds=kinds12, n_triggered=len(trig), max_latency_s=round(float(np.abs(lat).max()) if len(lat) else 0, 2),
         possible_kinds=len(sound_kinds))

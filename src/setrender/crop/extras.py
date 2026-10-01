@@ -20,9 +20,10 @@ from scipy import signal
 
 from ..audio import require_tool
 
-EXTRAS_VERSION = 2
+EXTRAS_VERSION = 3
 SR = 22050
 HOP = 2048          # ~10.8 Hz feature rate
+NFFT = 4096
 RATE = SR / HOP
 
 MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
@@ -75,6 +76,21 @@ def _stream_features(path: Path, log) -> dict:
     masks = [(freqs >= a) & (freqs < b) for a, b in bands]
     cfb = librosa.filters.chroma(sr=SR, n_fft=4096)
     n = 0
+    # STFT frames are contiguous across chunks: frame k is centred on sample k * HOP of the file,
+    # so feature index = time * RATE everywhere in the set (no drift at chunk seams)
+    mbuf = np.zeros(NFFT // 2, np.float32)
+
+    def _frames(mbuf_final: bool):
+        nonlocal mbuf
+        if len(mbuf) < NFFT:
+            return
+        nf = 1 + (len(mbuf) - NFFT) // HOP
+        S = np.abs(librosa.stft(mbuf[:(nf - 1) * HOP + NFFT], n_fft=NFFT, hop_length=HOP, center=False)) ** 2
+        chroma.append((cfb @ S).T)
+        cent.append((freqs[:, None] * S).sum(0) / (S.sum(0) + 1e-12))
+        wave.append(np.stack([np.sqrt(S[m].sum(0)) for m in masks], 1))
+        mbuf = mbuf[nf * HOP:]
+
     while True:
         raw = proc.stdout.read(chunk)
         if not raw:
@@ -91,15 +107,14 @@ def _stream_features(path: Path, log) -> dict:
         nb = len(buf) // HOP
         ms_blocks.append((buf[:nb * HOP] ** 2).reshape(nb, HOP, 2).mean(1).sum(1))
         tail = buf[nb * HOP:]
-        mono = x.mean(1)
-        S = np.abs(librosa.stft(mono, n_fft=4096, hop_length=HOP, center=False)) ** 2
-        if S.shape[1] == 0:
-            continue
-        chroma.append((cfb @ S).T)
-        cent.append((freqs[:, None] * S).sum(0) / (S.sum(0) + 1e-12))
-        wave.append(np.stack([np.sqrt(S[m].sum(0)) for m in masks], 1))
+        mbuf = np.concatenate([mbuf, x.mean(1)])
+        _frames(mbuf_final=False)
     proc.wait()
+    mbuf = np.concatenate([mbuf, np.zeros(NFFT // 2, np.float32)])   # flush the last frames
+    _frames(mbuf_final=True)
     ms = np.concatenate(ms_blocks) if ms_blocks else np.zeros(1)
+    if not wave:   # shorter than one analysis window
+        chroma, cent, wave = [np.zeros((1, 12))], [np.zeros(1)], [np.zeros((1, 3))]
     return {"ms": ms, "chroma": np.concatenate(chroma), "centroid": np.concatenate(cent),
             "wave": np.concatenate(wave), "n_samples": n}
 
