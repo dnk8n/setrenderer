@@ -1,7 +1,37 @@
+# environments and caches
 .venv/
-work/
-out/
 __pycache__/
 *.egg-info/
 .cache/
+
+# render output, scratch work and previews (videos, stills, analysis caches)
+out/
+work/
 previews/
+.cropcircle/
+
+# rich media and binary data never go in the repo
+*.mov
+*.mp4
+*.mkv
+*.m4v
+*.webm
+*.wav
+*.WAV
+*.aif
+*.aiff
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.npz
+*.npy
+*.parts/
+
+# OS metadata
+.DS_Store
