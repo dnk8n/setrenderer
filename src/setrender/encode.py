@@ -38,9 +38,10 @@ def container_for(quality: str, audio_codec: str) -> str:
     return ".mp4" if audio_codec == "aac" else ".mov"
 
 
-def estimate_bytes(quality: str, duration: float, out_wh, fps: float, info: AudioInfo, audio_codec: str) -> int:
+def estimate_bytes(quality: str, duration: float, out_wh, fps: float, info: AudioInfo, audio_codec: str,
+                   mbps: float | None = None) -> int:
     px_scale = (out_wh[0] * out_wh[1]) / (1920 * 1080) * (fps / 60)
-    v = EST_BPS.get(quality, 16e6) * px_scale
+    v = (mbps * 1e6 if mbps else EST_BPS.get(quality, 16e6)) * px_scale
     a = 384e3 if audio_codec == "aac" else info.sample_rate * info.channels * max(info.bits, 16)
     return int((v + a) * duration / 8)
 
@@ -82,9 +83,9 @@ def video_args(in_wh, out_wh, fps: float, quality: str, encoder: str, crf, prese
     return ["-filter_threads", "1", "-vf", ",".join(vf)] + venc
 
 
-def raw_input_args(in_wh, fps: float) -> list[str]:
+def raw_input_args(in_wh, fps: float, pix_fmt: str = "rgb24") -> list[str]:
     W, H = in_wh
-    return ["-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-framerate", f"{fps}",
+    return ["-f", "rawvideo", "-pix_fmt", pix_fmt, "-s", f"{W}x{H}", "-framerate", f"{fps}",
             "-thread_queue_size", "64", "-i", "-"]
 
 
@@ -98,9 +99,9 @@ def direct_cmd(out: Path, vargs, in_wh, fps, info: AudioInfo, start, duration, a
     return cmd + [str(out)]
 
 
-def segment_cmd(out: Path, vargs, in_wh, fps) -> list[str]:
+def segment_cmd(out: Path, vargs, in_wh, fps, pix_fmt: str = "rgb24") -> list[str]:
     cmd = [require_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y"]
-    return cmd + raw_input_args(in_wh, fps) + vargs + [str(out)]
+    return cmd + raw_input_args(in_wh, fps, pix_fmt) + vargs + [str(out)]
 
 
 def mux_cmd(out: Path, list_file: Path, info: AudioInfo, start, duration, audio_codec) -> list[str]:

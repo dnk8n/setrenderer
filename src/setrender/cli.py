@@ -62,19 +62,18 @@ def _render_chunks(job):
     (cache_path, cfg, fps, seed, title, chunks, vargs, in_wh, progress) = job
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     import numpy as np
-    import pygame
 
-    from .scene import Scene
+    from . import scenes
     from .timeline import Timeline
     an = analysis.load(Path(cache_path))
     tl = Timeline(an, fps, cfg.get("smoothing", {}))
-    scene = Scene(cfg, tl, np.random.default_rng(seed), title, an.fingerprint)
+    scene = scenes.make(cfg, tl, an, np.random.default_rng(seed), title)
     for (a, b, final) in chunks:
         final = Path(final)
         tmp = final.with_name(final.stem + ".tmp" + final.suffix)
-        proc = subprocess.Popen(encode.segment_cmd(tmp, vargs, in_wh, fps), stdin=subprocess.PIPE)
+        proc = subprocess.Popen(encode.segment_cmd(tmp, vargs, in_wh, fps, scene.pix_fmt), stdin=subprocess.PIPE)
         for i in range(a, b):
-            proc.stdin.write(pygame.image.tobytes(scene.render(i), "RGB"))
+            proc.stdin.write(scene.frame(i))
             if (i - a) % 30 == 29:
                 with progress.get_lock():
                     progress.value += 30
@@ -87,9 +86,12 @@ def _render_chunks(job):
     return 0
 
 
-def plan_budget(cpu: float, encoder: str, quality: str) -> tuple[int, int]:
+def plan_budget(cpu: float, encoder: str, quality: str, gpu: bool = False) -> tuple[int, int]:
     """Split a CPU budget (roughly the load average you allow) into parallel jobs and encoder threads.
-    Each job = 1 Python renderer + 1 ffmpeg filter thread + its encoder."""
+    Each job = 1 Python renderer + 1 ffmpeg filter thread + its encoder. GPU-rendered templates do
+    their pixel work on the GPU, so a job costs a little less CPU."""
+    if quality != "lossless" and encoder == "vt" and gpu:
+        return max(1, int(cpu // 2.2)), 1
     if quality != "lossless" and encoder == "vt":
         return max(1, int(cpu // 2.5)), 1      # hardware encoder: ~0.5 core of driver work
     return 1, max(1, int(cpu) - 2)             # software encoder gets the rest of the budget
@@ -112,7 +114,12 @@ def cmd_render(args) -> int:
     out = Path(args.output).expanduser() if args.output else Path("out") / f"{src.stem}.{cfg.get('name', 'render')}{ext}"
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    est = encode.estimate_bytes(args.quality, info.duration, out_wh, fps, info, acodec)
+    enc_cfg = cfg.get("encode", {}) or {}
+    if args.crf is None and args.quality in ("youtube", "high"):
+        # a template can set its own default quality (busy first-person scenes need more bits)
+        args.crf = enc_cfg.get("vt_q" if args.encoder == "vt" else "crf")
+    est = encode.estimate_bytes(args.quality, info.duration, out_wh, fps, info, acodec,
+                                enc_cfg.get("est_mbps") if args.quality == "youtube" else None)
     free = encode.free_bytes(out.parent)
     tmp_factor = 2  # chunks + joined file exist together briefly
     log(f"input: {src.name}  {info.duration/60:.1f} min  {info.sample_rate} Hz {info.bits}-bit {info.channels}ch")
@@ -127,12 +134,14 @@ def cmd_render(args) -> int:
 
     bands = cfg.get("bands")
     an, ah, cpath = get_analysis(src, args.start, args.duration, bands, args.no_cache)
+    from . import scenes
+    scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
     seed = make_seed(args.seed, ah, cfg, args.start)
     title = _title(src, args.title)
     n_frames = int(round(an.duration * fps))
     vargs = encode.video_args(in_wh, out_wh, fps, args.quality, args.encoder, args.crf, args.preset, crt)
 
-    jobs, enc_threads = plan_budget(args.cpu, args.encoder, args.quality)
+    jobs, enc_threads = plan_budget(args.cpu, args.encoder, args.quality, scenes.engine_of(cfg) == "cropcircle")
     vargs = encode.video_args(in_wh, out_wh, fps, args.quality, args.encoder, args.crf, args.preset, crt,
                               enc_threads=enc_threads)
     gop = max(1, int(round(fps / 2)))
@@ -257,20 +266,24 @@ def cmd_still(args) -> int:
     import numpy as np
     import pygame
 
-    from .scene import Scene
+    from . import scenes
     from .timeline import Timeline
     src = Path(args.audio).expanduser().resolve()
     cfg = config.resolve(args.template, args.params, _kw(args.keywords), args.set or [])
     an, ah, _ = get_analysis(src, args.start, args.duration, cfg.get("bands"), args.no_cache)
+    scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
     fps = float(args.fps)
     tl = Timeline(an, fps, cfg.get("smoothing", {}))
-    scene = Scene(cfg, tl, np.random.default_rng(make_seed(args.seed, ah, cfg, args.start)),
-                  _title(src, args.title), an.fingerprint)
+    scene = scenes.make(cfg, tl, an, np.random.default_rng(make_seed(args.seed, ah, cfg, args.start)),
+                        _title(src, args.title))
     out = Path(args.output or "still.png")
     frames = [int(float(x) * fps) for x in args.at.split(",")]
+    W = int(config.get_path(cfg, "canvas.width", 480))
+    H = int(config.get_path(cfg, "canvas.height", 270))
     for k, f in enumerate(frames):
-        surf = scene.render(min(f, tl.n - 1))
-        big = pygame.transform.scale(surf, (surf.get_width() * 4, surf.get_height() * 4))
+        surf = pygame.image.frombuffer(scene.frame(min(f, tl.n - 1)), (W, H), "RGBA" if scene.pix_fmt == "rgba" else "RGB")
+        mult = max(1, 1920 // W)
+        big = pygame.transform.scale(surf, (surf.get_width() * mult, surf.get_height() * mult))
         p = out if len(frames) == 1 else out.with_name(f"{out.stem}_{k:02d}{out.suffix}")
         pygame.image.save(big, str(p))
         log(f"wrote {p}")
