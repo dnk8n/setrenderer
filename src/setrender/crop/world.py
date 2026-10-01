@@ -604,7 +604,7 @@ class World:
         A_, L, sz0, ph, lag = self.j_anchor, self.j_L, self.j_size, self.j_ph, self.j_lag
         nJ = len(L)
         w0 = self.wind_hist(t - lag)
-        ang = 0.55 * w0 + np.sin(t * 1.3 + ph) * 0.08 + np.sin(t * 2.9 + ph * 2) * 0.03
+        ang = 0.55 * w0 + np.sin(t * 1.3 + ph) * 0.05 + np.sin(t * 2.9 + ph * 2) * 0.02
         sa, ca = np.sin(ang), np.cos(ang)
         pos = A_ + np.stack([wdx * sa * L, -ca * L, wdz * sa * L], 1)
         pulse = 0.5 + 0.15 * np.sin(t * 3.0 + ph) + lowmid * 0.5

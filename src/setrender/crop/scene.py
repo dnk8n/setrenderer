@@ -119,7 +119,7 @@ class CropScene:
         lib.add("corn", *M.corn())
         lib.add("corn_lo", *M.corn(lod=1))
         self.world = World(np.random.default_rng(rng.integers(1 << 31)), cfg, self.clip_start, self.total, self.struct, self.tinfo)
-        self.world._wind_fn = self.wind_at
+        self.world._wind_fn = self.swing_at
         self.world.char_cb = self.char_sprite
         self.world.n_cast = n_cast
         n_people = int(crowd_cfg.get("count", 110))
@@ -133,9 +133,15 @@ class CropScene:
                 tx, tz = e.p.get("target", (0.0, 50.0))
                 self.director.force(max(0.0, e.t0 + 4), min(self.dur, e.t0 + 10), "ufo",
                                     pos=(tx * 0.25, 1.6, 12.0), target=(tx, 18.0, tz))
-        for (t0, t1, cpos, tgt, fov) in self.events.features():
-            if not any(f[0] < t1 and t0 < f[1] for f in self.director.forced):
-                self.director.force(max(0.0, t0), min(self.dur, t1), "look", pos=cpos, target=tgt, fov=fov)
+        for (t0, t1, cpos, tgt, fov, ev_end) in self.events.features():
+            L = t1 - t0
+            for _ in range(3):   # if another framed shot is in the way, try again just after it
+                if self.director.force(max(0.0, t0), min(self.dur, t0 + L), "look", pos=cpos, target=tgt, fov=fov):
+                    break
+                clash = [f[1] for f in self.director.forced if f[0] < t0 + L and t0 < f[1]]
+                t0 = max(clash) if clash else t0 + L
+                if t0 + 3.0 > ev_end:
+                    break
         self.director.plan()
         self.hud = HUD(self.W, self.H, self.rects, ex, self.clip_start, self.total, self.struct, el.get("hud", {}))
 
@@ -168,11 +174,17 @@ class CropScene:
         gust = 0.65 * tl.env["beat"] * (0.4 + tl.env["bass"]) * kick + 0.25 * tl.env["lowmid"]
         ws = (base + gust).astype(np.float64)
         self.ws = ws
+        from ..timeline import _attack_release
+        self.ws_swing = _attack_release(ws, self.fps, 0.02, 0.15)
         self.wphase = np.cumsum(ws) / self.fps * 2.2
         self.wdir = 0.6 + 0.35 * np.sin(T / 300.0)
 
     def wind_at(self, t):
         return np.interp(np.asarray(t) * self.fps, np.arange(len(self.ws)), self.ws)
+
+    def swing_at(self, t):
+        """Wind as the hanging jellyfish feel it: the beat's gusts, smoothed by their inertia."""
+        return np.interp(np.asarray(t) * self.fps, np.arange(len(self.ws_swing)), self.ws_swing)
 
     def _palettes(self, ex):
         """Accent colours follow the music's key on the Camelot wheel, offset per set."""

@@ -188,7 +188,7 @@ def _full_set_checks(set_audio):
     cuts = np.array([s.t0 for s in sc.director.shots[1:]])
     forced = np.array([f[0] for f in sc.director.forced])
     planned = np.array([t for t in cuts if not np.any(np.abs(forced - t) < 1e-6)]) if len(forced) else cuts
-    off = np.array([np.min(np.abs(marks - t)) for t in planned]) * fps
+    off = np.array([np.min(np.abs(marks - t)) for t in cuts]) * fps
     aligned = float((off <= 1.0).mean()) if len(off) else 1.0
     rec("C6", moving >= 0.95 and fov_span >= 30 and len(kinds) >= 10 and aligned >= 0.95,
         moving_frames=round(moving, 4), fov_span_deg=round(fov_span, 1), shot_kinds=len(kinds), kinds=kinds,
@@ -228,11 +228,13 @@ def _full_set_checks(set_audio):
     W_ = sc.world
     if not hasattr(W_, "j_anchor"):
         W_._jelly_arrays()
-    tt = tl.t[::5]
+    # the swing angle the world computes for one jellyfish, against the raw wind at the best response delay
+    tt = tl.t[::2]
     lag = float(W_.j_lag[0])
-    ang = 0.55 * sc.wind_at(tt - lag) + np.sin(tt * 1.3 + W_.j_ph[0]) * 0.08 + np.sin(tt * 2.9 + W_.j_ph[0] * 2) * 0.03
-    r_jelly = float(np.corrcoef(ang, sc.wind_at(tt))[0, 1])
-    rec("C8", r_wind >= 0.5 and r_jelly >= 0.8, wind_vs_beat_r=round(r_wind, 3), jelly_swing_vs_wind_r=round(r_jelly, 3))
+    ang = 0.55 * W_.wind_hist(tt - lag) + np.sin(tt * 1.3 + W_.j_ph[0]) * 0.05 + np.sin(tt * 2.9 + W_.j_ph[0] * 2) * 0.02
+    best = max((float(np.corrcoef(ang, sc.wind_at(tt - d))[0, 1]), d) for d in np.arange(0.0, 0.81, 1 / 30))
+    rec("C8", r_wind >= 0.5 and best[0] >= 0.8, wind_vs_beat_r=round(r_wind, 3), jelly_swing_vs_wind_r=round(best[0], 3),
+        response_delay_s=round(best[1], 3))
 
     # C9 headlights (instrumented: read the headlight emission the world builds for sampled frames)
     from setrender.crop.parts import Parts
@@ -244,8 +246,9 @@ def _full_set_checks(set_audio):
         P = Parts()
         W_._car(cc, P)
         rows = np.array(P.mesh["box"])
-        em = rows[rows[:, 15] == 9][:, 16:19].max(1)
-        hl.append(float(em.max()))
+        lit = rows[(rows[:, 15] == 9) & (rows[:, 16] > 0)]
+        head = lit[np.abs(lit[:, 17] / lit[:, 16] - 0.92) < 0.01]   # headlights are warm white (1, .92, .75)
+        hl.append(float(head[:, 16].max()))
         sub.append(cc.env["sub"])
     r_hl = float(np.corrcoef(hl, sub)[0, 1])
     bi = np.nonzero(~kick)[0][::40]

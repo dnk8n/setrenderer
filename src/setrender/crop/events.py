@@ -35,6 +35,10 @@ DURATION = {"cowbell": 9, "ufo": 26, "cat": 4, "chickens": 12, "rooster": 5, "sh
             "birds": 14, "pianohands": 8, "cheer": 5, "dog": 10, "pride_jelly": 30, "qblocks": 20}
 
 
+FRAMED = {"conga", "cypher", "rowboat", "cowbell", "sax", "baby", "pacman", "hotdog", "chickens", "nyan", "ymca",
+          "robotmob", "floss", "goat", "sheep", "fireworks", "smiley", "creeper", "balloon"}
+
+
 @dataclass
 class Event:
     kind: str
@@ -134,6 +138,8 @@ class Events:
                     p2["center"] = (float(rng.uniform(-5, 5)), float(rng.uniform(-8, 0)))
                 if kind in ("pacman",):
                     p2["dir"] = float(rng.choice([-1, 1]))
+                if kind in FRAMED and any(e.kind in FRAMED and e.t0 < t + L and t < e.t1 for e in self.ev):
+                    continue   # one framed gag at a time, so the camera can show each of them
                 self.add(kind, t, t + L, **p2)
                 busy_until[kind] = t + L + 60
         # numbers for people who read the HUD
@@ -203,7 +209,7 @@ class Events:
                 spec = ((6.0, 1.6, 3.5), (5.0, 1.0, -1.0), 55)
             elif k == "balloon":
                 spec = ((0.0, 1.6, 10.0), (0.0, 45.0, -80.0), 60)
-            if spec is None or e.t0 - last < 20 or rng.random() > 0.9:
+            if spec is None or e.t0 - last < 12:
                 continue
             t0 = e.t0 + (bar if e.t1 - e.t0 > 3 * bar else 0.0)
             t1 = min(e.t1, t0 + min(2.5 * bar, 8.0))
@@ -211,7 +217,7 @@ class Events:
                 t0, t1 = e.t0 + 2.0, e.t0 + 9.0
             if k == "balloon":
                 t0, t1 = e.t0 + (e.t1 - e.t0) * 0.45, e.t0 + (e.t1 - e.t0) * 0.45 + 7.0
-            out.append((t0, t1, spec[0], spec[1], spec[2]))
+            out.append((t0, t1, spec[0], spec[1], spec[2], e.t1))
             last = t0
         return out
 

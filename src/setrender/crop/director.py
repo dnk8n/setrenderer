@@ -69,8 +69,22 @@ class Director:
         self.forced: list[tuple] = []     # (t0, t1, kind, params) from events (e.g. the UFO)
         self.cut_pace = float(cfg.get("cut_pace", 1.0))
 
+    def snap(self, t: float) -> float:
+        """Nearest downbeat, so every cut lands on the bar."""
+        db = self.st.downbeats
+        if not len(db):
+            return t
+        return float(db[int(np.argmin(np.abs(db - t)))])
+
     def force(self, t0, t1, kind, **p):
-        self.forced.append((t0, t1, kind, p))
+        a, b = self.snap(t0), self.snap(t1)
+        if b <= a:
+            i = int(np.searchsorted(self.st.downbeats, a + 0.01))
+            b = float(self.st.downbeats[i]) if i < len(self.st.downbeats) else self.dur
+        if any(f[0] < b and a < f[1] for f in self.forced):
+            return False
+        self.forced.append((a, min(b, self.dur), kind, p))
+        return True
 
     def plan(self):
         rng = self.rng
@@ -124,8 +138,13 @@ class Director:
                 if is_hard or cnt >= n_ph:
                     t1 = b
                     break
+            nxt = [f[0] for f in self.forced if t + 0.01 < f[0] < t1]
+            if nxt:   # never run over a framed shot, even one that starts in a moment
+                t1 = min(nxt)
             if kind == "orbit" and t1 - t > 10:
-                t1 = t + min(t1 - t, 60 / max(self.st_bpm(), 60) * 8)
+                t1 = min(t1, max(self.snap(t + 60 / max(self.st_bpm(), 60) * 8), t + 4.0))
+                if t1 <= t + 1.0:
+                    t1 = self.snap(t + 8.0)
             sh = self._make(kind, t, t1, k, {})
             if fresh_drop:
                 mv = rng.choice(["roll", "dolly", "whip", "none"], p=[0.3, 0.25, 0.25, 0.2])
