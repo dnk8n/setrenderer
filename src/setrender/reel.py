@@ -98,17 +98,23 @@ def choose(an: Analysis, st, n: int | None = None, length: float = 30.0, hints=N
     hi = (outro if outro is not None else dur) - clip_len * 1.5
     inner = n - 2
     edges = np.linspace(lo, hi, inner + 1)
+    used: dict[str, int] = {}
     for k in range(inner):
         a, b = edges[k], edges[k + 1]
-        mid = (a + b) / 2
-        m = (db >= a) & (db < b - clip_len)
+        mid, w = (a + b) / 2, b - a
+        # only the middle half of each stretch, so neighbouring clips stay between half and one and a
+        # half stretches apart
+        m = (db >= mid - 0.25 * w) & (db < mid + 0.25 * w - clip_len)
         if not m.any():
             clips.append(Clip(snap_beat(mid), clip_len, "even"))
             continue
         idx = np.where(m)[0]
-        # salience, gently pulled towards the middle of the window so clips stay evenly spread
-        s = score[idx] - 0.15 * np.abs(db[idx] - mid) / max(b - a, 1.0)
-        j = idx[int(np.argmax(s))]
+        # salience, gently pulled to the middle, and a little against repeating the same kind of moment
+        kinds = [why[i].split(" ")[0] + " " + why[i].split(" ")[1] if " " in why[i] else why[i] for i in idx]
+        s = score[idx] - 0.15 * np.abs(db[idx] - mid) / max(w, 1.0) - np.array([0.9 * used.get(x, 0) for x in kinds])
+        jj = int(np.argmax(s))
+        j = idx[jj]
+        used[kinds[jj]] = used.get(kinds[jj], 0) + 1
         # start one beat before the moment so the hit lands inside the clip
         t0 = snap_beat(db[j] - period)
         clips.append(Clip(t0, clip_len, why[j], float(score[j])))
