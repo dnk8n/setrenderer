@@ -338,13 +338,13 @@ class HoseScene:
                 self._plane(ink, c, kind, x, y, p, h)
             else:
                 heroes.draw(ink, kind, x, y, p, 1.0)
-            hands[h] = (x + 80, (y if not a.sky else y + 40) - 135 - p.lift)
+            hands[h] = (x + 50, y - 10) if a.sky else (x + 80, y - 135 - p.lift)
         # peashooter bullets: little blue-white teardrops that streak to the boss
         for ts, h in bullets:
             tt = t - ts
             hx, hy, *_ = F.hero_xy(h, ts)
-            y0 = (hy if not a.sky else hy + 40) - 135 - F.jump_at(h, ts)[0] - 6
-            x = hx + 95 + 2600 * tt
+            y0 = hy - 14 if a.sky else hy - 135 - F.jump_at(h, ts)[0] - 6
+            x = hx + (70 if a.sky else 95) + 2600 * tt
             hit = 1180 + 140 * h01("hit", ts)
             if x < hit:
                 ink.glow(x, y0, 26, (0.6, 0.85, 1.0, 0.35), soft=16)

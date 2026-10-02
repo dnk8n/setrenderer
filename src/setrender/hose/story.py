@@ -399,7 +399,8 @@ class Fight:
                     shots.append(Shot(ts, "arc", ex, ey, vx, vy, pink, 1.1, r, T + 0.6))
                 elif kind == "rain":
                     x = tgt_x + (h01(seed, bk, j, "rx") - 0.5) * 300
-                    shots.append(Shot(ts, "rain", x, -60, -40.0, 520.0, pink, 1.0, r, 2.6))
+                    shots.append(Shot(ts, "rain", x, -60, -40.0, 520.0, False, 1.0, r, 2.6))
+                    n_pink -= 1
                 elif kind == "wave":
                     shots.append(Shot(ts, "wave", ex, tgt_y - 40, -520.0, 0.0, pink, 1.0, r, 3.6))
                 elif kind == "ring":
@@ -420,7 +421,8 @@ class Fight:
             # time the shot reaches the hero's area
             hx = self.hero_xy(h, s.ts)[0]
             tt = self._arrival(s, hx)
-            if tt is None:
+            if tt is None or tt < 0.4:
+                s.pink = False      # only shots the heroes can see coming are pink
                 continue
             s.end, s.life = "parry", tt - s.ts
             self.jumps[h].append(Jump(s.ts + tt - 0.32, 0.55, 150.0, True))
