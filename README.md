@@ -6,6 +6,8 @@ Turn a DJ set (WAV/AIFF) into a beat-synced, YouTube-ready music video, styled b
 ./install.sh                                   # ffmpeg via Homebrew + local venv
 .venv/bin/setrender render my_set.wav          # whole set -> out/my_set.knisper.mov
 .venv/bin/setrender render my_set.wav -t cropcircle   # first-person 3D farm festival (GPU)
+.venv/bin/setrender render my_set.wav -t rubberhose   # 1930s rubber-hose cartoon boss rush (GPU)
+.venv/bin/setrender reel my_set.wav -t rubberhose     # 30 s highlight reel, cut on the beat
 .venv/bin/setrender render my_set.wav --start 600 --duration 30   # preview a slice
 .venv/bin/setrender still my_set.wav --at 60,600,3600             # PNG snapshots
 .venv/bin/setrender templates                  # list templates and their keywords
@@ -54,6 +56,7 @@ Precedence: template < `--params` < `--keywords` < `--set`. Every render writes 
 |---|---|---|
 | `knisper` | pygame (CPU), 480x270 pixel art | 8-bit underground rave: burned-out car stage, jellyfish trees, bouncing crowd, C64/Amiga/Mega Drive/N64/NES nods |
 | `cropcircle` | WebGPU on Metal (GPU), 640x360 HD-2D | first-person night at a farm festival, sunset to sunrise: crop circles, jellyfish in a beat-gusting wind, a car built into the DJ stage, a crowd that comes and goes |
+| `rubberhose` | WebGPU on Metal (GPU), vector ink and paint at the output resolution | a 1930s rubber-hose cartoon boss rush in the spirit of Cuphead, with original characters: ten-minute boss fights, intermissions, title cards and a 24 fps film print |
 
 A template picks its scene engine with `engine:` (default: the pygame pixel-art engine).
 
@@ -70,6 +73,26 @@ It renders at about 120 fps with two jobs (`--cpu 5`, about 61 minutes for a 2 h
 
 Things to look out for: UFOs that lay crop circles through the night (one also turns up whenever the classifier hears a theremin), a cow with a cowbell when the classifier hears one, a sax player when it hears a sax, a vibing cat on the car roof, Tetris played with hay bales, the Konami code at bar 1337, someone missing at bar 404, portaloo doors that fly open on the beat, row-the-boat in long breakdowns, conga lines, YMCA, Pac-Man, a Nyan cat, a dancing hot dog and Game Boy/VHS/CGA filter moments.
 
+### rubberhose
+
+| Stage | Tool | Notes |
+|---|---|---|
+| Running order | numpy, the shared analysis and the cropcircle sound classifier (Core ML, Neural Engine capable) | the whole set is planned up front: acts of about ten minutes cut at section starts, three boss phases each, READY?/GO!/KNOCKOUT! cards, intermissions from long breakdowns, supers on drops, shots on beats and hi-hats, parries timed to arrivals, gags cued by sounds |
+| Drawing | wgpu (WebGPU, Metal backend) | every shape is a signed-distance primitive on an instanced quad (ellipses, tapered capsules, quadratic hose curves, pie-cut pupils, stars, arcs, hearts, sunbursts, waves), with shared outlines, ink that is heavier on the shadow side, cel shading, watercolour washes for backgrounds, and line boil that changes with every drawing |
+| Timing | | characters are drawn on a 24-drawings-per-second clock, as in 1930s cartoons and Cuphead, re-phased so a new drawing always lands on the beat; the camera and shots move at 60 fps |
+| Film | WGSL | gate weave, flicker with a kick pump, grain at 24 fps, dust, hairs and scratches, halation, soft focus, vignette, iris transitions, a warm print grade (or `twostrip`, `mono`, `clean`) |
+| Encode | GPU → NV12 → VideoToolbox | frames are converted to BT.709 NV12 on the GPU, so ffmpeg only encodes |
+
+It renders at about 1.8x real time with three jobs (`--cpu 7`, about 70 minutes for a 2 h set at a load of 5–6) and about 10 GB per 2 h. Slices are drawn in absolute set time, so `--start/--duration` gives exactly the frames of the full render.
+
+The heroes are two kitchen mascots (a pepper shaker, a rye loaf, a salt shaker, a light bulb or a sugar bowl); a set title that names one of them casts it. The eight bosses are a gramophone in a ballroom, a sun and a storm cloud fought in biplanes, a kettle in a kitchen, a pipe organ in a graveyard whose pipes are a spectrum, an octopus at sea, a jukebox robot on a rooftop whose neon tubes are a spectrum, and an old oak in the forest. Keywords: `twostrip`, `mono`, `clean`, `pristine`, `steady`, `nohud`, `short`, `long`, `frantic`, `chill`, `sky`, `spooky`.
+
+Things to look out for: a jazz horn that pops in when the classifier hears brass, a candlestick phone on ringtones, a black cat on a meow, a skeleton playing its ribs on xylophones (and at bar 1929, for The Skeleton Dance), a steamboat on a foghorn (and at bar 1928, for Steamboat Willie), a stork when a baby cries, a ghost on a theremin, a record being scratched, the audience cheering, the boss laughing, and a film burn at bar 404.
+
+### Highlight reels
+
+`setrender reel <audio> -t <template>` cuts about 30 s of whole-beat clips (10 to 15 clips of 2 to 3 s, whichever fills the length best), opening on the title and closing on the end. The clips in between are spread evenly through the set, each on the most salient moment of its stretch (drops, energy jumps, section starts and whatever the template flags, such as supers, knockouts and gags). It cuts from the full render when one exists, or renders just the clips. `--phone` adds a 720p copy.
+
 ## Completeness
 
-`CRITERIA.md` defines "done" for the CLI and `knisper`; `tests/criteria.py` runs its automated checks and writes `work/criteria/report.json`. `CRITERIA-cropcircle.md` adds the cropcircle brief; `tests/criteria_cropcircle.py [--full out/<render>.mov]` writes `work/criteria-cropcircle/report.json`, and the latest results are in `CRITERIA_REPORT-cropcircle.md`.
+`CRITERIA.md` defines "done" for the CLI and `knisper`; `tests/criteria.py` runs its automated checks and writes `work/criteria/report.json`. `CRITERIA-cropcircle.md` adds the cropcircle brief; `tests/criteria_cropcircle.py [--full out/<render>.mov]` writes `work/criteria-cropcircle/report.json`, and the latest results are in `CRITERIA_REPORT-cropcircle.md`. `CRITERIA-rubberhose.md` adds the rubberhose brief and the highlight reel; `tests/criteria_rubberhose.py [--full out/<render>.mov]` writes `work/criteria-rubberhose/report.json`.

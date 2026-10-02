@@ -3,7 +3,7 @@
 Each criterion is checked by an automated test (`A`) or a human checklist (`H`).
 A release is "complete" when every `A` passes and every `H` is ticked.
 
-Template-specific criteria for cropcircle.tpl are in CRITERIA-cropcircle.md.
+Template-specific criteria for cropcircle.tpl are in CRITERIA-cropcircle.md, and for rubberhose.tpl (and the highlight reel) in CRITERIA-rubberhose.md.
 
 ## 1. Interface
 - A1. `setrender render <audio>` works with no other arguments (template `knisper.tpl` and every parameter defaulted).
