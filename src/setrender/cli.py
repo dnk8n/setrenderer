@@ -300,6 +300,72 @@ def cmd_still(args) -> int:
     return 0
 
 
+def cmd_reel(args) -> int:
+    """30-second highlight reel: beat-cut clips spread evenly through the set at its salient moments."""
+    import numpy as np
+
+    from . import reel, scenes
+    from .crop import music as cmusic
+    if args.nice:
+        os.nice(max(0, min(20, args.nice)))
+    src = Path(args.audio).expanduser().resolve()
+    cfg = config.resolve(args.template, args.params, _kw(args.keywords), args.set or [])
+    name = cfg.get("name", "render")
+    an, ah, _ = get_analysis(src, 0.0, None, cfg.get("bands"), args.no_cache)
+    scenes.prepare(cfg, src, ah, 0.0, CACHE_DIR, log)
+    ex = None
+    ep = (cfg.get("_clip") or {}).get("extras")
+    if ep and Path(ep).exists():
+        z = np.load(ep, allow_pickle=True)
+        ex = {k: z[k] for k in z.files}
+    st = cmusic.build(an, ex, 0.0)
+    title = _title(src, args.title)
+    hints, intro, outro = scenes.highlight_hints(cfg, title, np.random.default_rng(make_seed(args.seed, ah, cfg, 0.0)))
+    clips = reel.choose(an, st, args.clips, args.length, hints, intro, outro)
+    for k, c in enumerate(clips):
+        log(f"clip {k + 1:2d}: {c.t0 // 60:3.0f}:{c.t0 % 60:05.2f}  {c.dur:.2f}s  {c.why}")
+    out = Path(args.output) if args.output else Path("out") / f"{src.stem}.{name}_highlights.mp4"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    full = Path(args.source) if args.source else Path("out") / f"{src.stem}.{name}.mov"
+    sources = []
+    if full.exists() and Path(str(full) + ".json").exists() and \
+            abs(json.loads(Path(str(full) + ".json").read_text())["audio"]["duration"] - an.duration) < 0.1:
+        log(f"cutting clips from {full}")
+        sources = [(full, c.t0) for c in clips]
+    else:
+        if not scenes.native(cfg):
+            log("note: no full render found; rendering each clip as its own slice")
+        work = Path("work") / "reel" / f"{src.stem}.{name}"
+        work.mkdir(parents=True, exist_ok=True)
+        for k, c in enumerate(clips):
+            clip_out = work / f"clip{k:02d}_{c.t0:.3f}.mov"
+            if not clip_out.exists():
+                argv = ["render", str(src), "-t", args.template, "--start", f"{c.t0:.6f}", "--duration", f"{c.dur:.6f}",
+                        "-o", str(clip_out), "--cpu", str(args.cpu), "--nice", "0", "--seed", str(args.seed),
+                        "--chunk", "60", "--restart"]
+                if args.keywords:
+                    argv += ["--keywords", args.keywords]
+                for kv in args.set or []:
+                    argv += ["--set", kv]
+                if args.params:
+                    argv += ["--params", args.params]
+                if args.title:
+                    argv += ["--title", args.title]
+                if main(argv) != 0:
+                    return 1
+            sources.append((clip_out, 0.0))
+    reel.build(clips, sources, src, out, fps=float(args.fps), q=args.q)
+    log(f"wrote {out}")
+    if args.phone:
+        phone = out.with_name(out.stem + "_phone.mp4")
+        reel.build(clips, sources, src, phone, fps=30.0, q=55, scale=(1280, 720), audio_bitrate="192k")
+        log(f"wrote {phone}")
+    Path(str(out) + ".json").write_text(json.dumps(
+        {"audio": str(src), "template": name, "clips": [c.__dict__ for c in clips],
+         "total_s": round(sum(c.dur for c in clips), 3), "sources": [str(s) for s, _ in sources]}, indent=2))
+    return 0
+
+
 def cmd_analyze(args) -> int:
     src = Path(args.audio).expanduser().resolve()
     an, ah, cpath = get_analysis(src, args.start, args.duration, None, args.no_cache)
@@ -387,6 +453,19 @@ def main(argv=None) -> int:
     _common(s)
     s.add_argument("--at", default="30", help="comma-separated times in seconds")
     s.set_defaults(func=cmd_still)
+
+    rl = sub.add_parser("reel", help="cut a highlight reel: beat-length clips spread evenly at salient moments",
+                        formatter_class=_Help)
+    _common(rl)
+    rl.add_argument("--clips", type=int, default=None,
+                    help="number of clips including the title and the end (default: 10-15, whichever fills --length best)")
+    rl.add_argument("--length", type=float, default=30.0, help="target reel length in seconds")
+    rl.add_argument("--source", help="full render to cut from (default: out/<name>.<template>.mov if complete)")
+    rl.add_argument("--cpu", type=float, default=7, help="CPU budget when clips have to be rendered")
+    rl.add_argument("--nice", type=int, default=10, help="process priority niceness (0-20)")
+    rl.add_argument("--q", type=int, default=62, help="VideoToolbox quality for the reel")
+    rl.add_argument("--phone", action="store_true", help="also write a small 720p30 copy for phones")
+    rl.set_defaults(func=cmd_reel)
 
     a = sub.add_parser("analyze", help="print the audio analysis")
     a.add_argument("audio")

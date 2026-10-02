@@ -276,7 +276,7 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
         if any(abs(c.t0 - t) < bar * 3 for c in P.cards):
             continue
         a = next((a for a in P.acts if a.go < t < a.ko), None)
-        if a is None:
+        if a is None or any(i.t0 - bar <= t < i.t1 + bar for i in P.inters):
             continue
         P.cards.append(Card(t, t + bar, EXCLAIM[int(h01("ex", ex, t) * len(EXCLAIM))], "word"))
         ex += 1

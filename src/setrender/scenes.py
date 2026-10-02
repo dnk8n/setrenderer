@@ -124,3 +124,11 @@ def _prepare_hose(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir
     except Exception as e:  # noqa: BLE001
         out["gpu"] = f"unavailable: {e}"
     return out
+
+
+def highlight_hints(cfg: dict, title: str, rng):
+    """Template-specific highlight moments for `setrender reel` (needs prepare() first)."""
+    if engine_of(cfg) == "rubberhose":
+        from .hose.scene import highlight_hints as hh
+        return hh(cfg, title, rng)
+    return [], None, None

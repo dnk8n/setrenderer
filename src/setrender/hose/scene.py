@@ -23,6 +23,41 @@ NAMES = {"pepper": "PEPPER", "loaf": "PUMPERNICKEL", "salt": "SALTY", "bulb": "S
 GRADES = {"warm": 0.0, "twostrip": 1.0, "mono": 2.0, "clean": 3.0}
 
 
+def running_order(cfg: dict, title: str, rng):
+    """The whole cartoon's plan (no GPU needed): analysis, music structure, seed, cast and acts."""
+    clip = cfg["_clip"]
+    full = analysis.load(Path(clip["analysis"]))
+    ex = None
+    if clip.get("extras") and Path(clip["extras"]).exists():
+        z = np.load(clip["extras"], allow_pickle=True)
+        ex = {k: z[k] for k in z.files}
+    st = cmusic.build(full, ex, 0.0)
+    m = story.Music(full, st)
+    seed = int(rng.integers(1 << 30))
+    r2 = np.random.default_rng(seed)
+    cast = heroes.cast_from_title(title, r2)
+    want = cfg.get("bosses") or [b["name"] for b in bosses.ROSTER]
+    roster = [bosses.BY_NAME[n] for n in want if n in bosses.BY_NAME] or bosses.ROSTER
+    P = story.plan(m, st, r2, roster, cfg.get("story", {}) or {}, st.sounds)
+    return full, st, m, seed, cast, P
+
+
+def highlight_hints(cfg: dict, title: str, rng):
+    """Moments worth a highlight clip: supers, knockouts, round starts, gags and intermissions.
+    Returns (hints [(t, weight, label)], intro end, outro start)."""
+    full, st, m, seed, cast, P = running_order(cfg, title, rng)
+    hints = []
+    for a in P.acts:
+        F = story.Fight(m, P, a, bosses.BY_NAME[a.boss], seed + a.k * 7919, cfg.get("story", {}) or {})
+        hints += [(t, 1.2, f"super vs {a.boss}") for t in F.supers]
+        hints.append((a.ko, 1.0, f"knockout {a.boss}"))
+        hints.append((a.go, 0.6, f"round start {a.boss}"))
+        hints += [(t, 0.3, f"phase {k + 1} {a.boss}") for k, t in enumerate(a.phases[1:], 1)]
+    hints += [(g.t0, 0.5, f"gag {g.kind}") for g in P.gags if g.kind not in ("scratch", "singalong", "laugh")]
+    hints += [(i.t0, 0.4, f"intermission {i.kind}") for i in P.inters]
+    return hints, P.intro[1], P.outro[0]
+
+
 class HoseScene:
     pix_fmt = "nv12"
 
@@ -32,20 +67,8 @@ class HoseScene:
         self.fps = float(tl.fps)
         self.start = float(clip["start"])
         self.title = title
-        full = analysis.load(Path(clip["analysis"]))
-        ex = None
-        if clip.get("extras") and Path(clip["extras"]).exists():
-            z = np.load(clip["extras"], allow_pickle=True)
-            ex = {k: z[k] for k in z.files}
-        st = cmusic.build(full, ex, 0.0)
-        self.m = story.Music(full, st)
-        self.seed = int(rng.integers(1 << 30))
-        r2 = np.random.default_rng(self.seed)
-        self.cast = heroes.cast_from_title(title, r2)
+        full, st, self.m, self.seed, self.cast, self.P = running_order(cfg, title, rng)
         self.names = [self._name(k) for k in self.cast]
-        want = cfg.get("bosses") or [b["name"] for b in bosses.ROSTER]
-        roster = [bosses.BY_NAME[n] for n in want if n in bosses.BY_NAME] or bosses.ROSTER
-        self.P = story.plan(self.m, st, r2, roster, cfg.get("story", {}) or {}, st.sounds)
         self.fights: dict[int, story.Fight] = {}
         self.vocal = st
         # smoothed band envelopes for the whole set, one value per video frame
