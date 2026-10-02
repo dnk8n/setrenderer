@@ -424,7 +424,7 @@ class Fight:
             if tt is None or tt < 0.4:
                 s.pink = False      # only shots the heroes can see coming are pink
                 continue
-            s.end, s.life = "parry", tt - s.ts
+            s.end, s.life = "parry", tt
             self.jumps[h].append(Jump(s.ts + tt - 0.32, 0.55, 150.0, True))
             self.parries.append(s.ts + tt)
         self.parries.sort()

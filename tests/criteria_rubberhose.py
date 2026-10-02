@@ -164,7 +164,7 @@ def _r2(fx):
 
 
 def _r3_r12(fx, set_audio):
-    ix = [300, 1200, 2400, 3300]
+    ix = [300, 700, 1100, 1500]          # inside both test sets (60 s and 30 s)
     a = make_scene(fx["setA.wav"])
     fa = rgb_frames(a, ix)
     fa2 = rgb_frames(make_scene(fx["setA.wav"]), ix)
@@ -299,7 +299,8 @@ def _plan_checks(set_audio):
     # R11: classifier coverage and sound-cued gags
     ex = np.load(sc.cfg["_clip"]["extras"], allow_pickle=True)
     t_sa = ex["sa_t"]
-    gaps = float(np.max(np.diff(np.concatenate([[0.0], t_sa, [m.dur]]))))
+    # windows are 3 s long, centred on sa_t: the gap between results, and what the ends leave uncovered
+    gaps = float(max(np.max(np.diff(t_sa)), t_sa[0] - 1.5, m.dur - (t_sa[-1] + 1.5)))
     labels = [str(x) for x in ex["sa_labels"]]
     sound_gags = [g for g in P.gags if g.label in story.GAG_SOUNDS]
     lat = []
@@ -398,8 +399,11 @@ def _r15(reel_path: Path, set_audio: Path):
     for c in clips:
         a = rr[int((off + 0.35) * 8000): int((off + c["dur"] - 0.35) * 8000)]
         b = pcm(["-ss", f"{c['t0'] + 0.35:.4f}", "-t", f"{c['dur'] - 0.7:.4f}", "-i", str(set_audio)])
-        k = min(len(a), len(b))
-        corr.append(float(np.corrcoef(a[:k], b[:k])[0, 1]) if k > 100 else 0.0)
+        k = min(len(a), len(b)) - 1600
+        # best match within ±100 ms (the AAC encoder's priming delay shifts the decoded audio slightly)
+        best = max((float(np.corrcoef(a[800 + d: 800 + d + k], b[800: 800 + k])[0, 1]) for d in range(-800, 801, 8)),
+                   default=0.0) if k > 100 else 0.0
+        corr.append(best)
         off += c["dur"]
     rec("R15", 10 <= n <= 15 and all(2.0 <= x <= 3.0 for x in durs) and abs(total - 30) <= 2 and all(on_beat)
         and first_title and last_end and even and min(corr) >= 0.9, clips=n, clip_s=round(float(np.mean(durs)), 2),

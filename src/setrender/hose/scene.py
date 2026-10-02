@@ -82,7 +82,14 @@ class HoseScene:
                                           self.fps, a, r).astype(np.float32)
         a, r = sm.get("loudness", [0.2, 0.8])
         self.env["loud"] = _attack_release(full.at(full.loudness, tt).astype(np.float64), self.fps, a, r).astype(np.float32)
-        self.bpm = cmusic.local_bpm(self.m.beats, tt[:: int(self.fps)], full.tempo)
+        bpm = cmusic.local_bpm(self.m.beats, tt[:: int(self.fps)], full.tempo).astype(np.float64)
+        last = float(full.tempo)
+        for k in range(len(bpm)):          # gaps in the beat grid (fades, the very end): hold the last tempo
+            if 70.0 <= bpm[k] <= 190.0:
+                last = bpm[k]
+            else:
+                bpm[k] = last
+        self.bpm = bpm
         film = cfg.get("film", {}) or {}
         self.grade = GRADES.get(str(film.get("grade", "warm")), 0.0)
         self.grain = float(film.get("grain", 0.045))
@@ -231,7 +238,7 @@ class HoseScene:
         c.intro = min(1.0, (t - a.t0) / max(a.go - a.t0, 1e-3))
         c.sky = a.sky
         c.variant = a.variant
-        c.hue = (0.12 * a.variant) % 1.0
+        c.hue = (-0.05 * a.variant) % 1.0     # rematches come back a shade redder
         sh = F.active_shots(t)
         recent = [s.ts for s in F.shots if s.ts <= t and t - s.ts < 2.0] if not sh else [s.ts for s in sh]
         c.shot = t - max(recent) if recent else 9.0
@@ -454,6 +461,6 @@ class HoseScene:
         P = self.P
         end = P.outro[1]
         if t > end - 2.0:
-            u = (t - (end - 2.0)) / 2.0
+            u = min(1.0, (t - (end - 2.0)) / 2.0)
             return [W / 2, 420, 2300 * (1 - u) ** 1.6]
         return None

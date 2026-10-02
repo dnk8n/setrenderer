@@ -93,6 +93,9 @@ def choose(an: Analysis, st, n: int | None = None, length: float = 30.0, hints=N
 
     clips = []
     t_open = min(3.0, max(0.0, (intro or 8.0) - clip_len - 0.5))
+    k_open = int(np.searchsorted(beats, t_open))
+    if k_open < len(beats) and beats[k_open] + clip_len <= (intro or beats[k_open] + clip_len):
+        t_open = float(beats[k_open])
     clips.append(Clip(t_open, clip_len, "title"))
     lo = (intro or 0.0) + clip_len
     hi = (outro if outro is not None else dur) - clip_len * 1.5
@@ -119,7 +122,11 @@ def choose(an: Analysis, st, n: int | None = None, length: float = 30.0, hints=N
         t0 = snap_beat(db[j] - period)
         clips.append(Clip(t0, clip_len, why[j], float(score[j])))
     t_end = (outro if outro is not None else dur - clip_len - 2.5)
-    clips.append(Clip(min(t_end + 1.0, dur - clip_len - 2.6), clip_len, "the end"))
+    t_last = min(t_end + 1.0, dur - clip_len - 2.6)
+    k_last = int(np.searchsorted(beats, t_last))
+    if k_last < len(beats) and beats[k_last] + clip_len <= dur - 0.5:
+        t_last = float(beats[k_last])
+    clips.append(Clip(t_last, clip_len, "the end"))
     return clips
 
 
