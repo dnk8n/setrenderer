@@ -51,13 +51,35 @@ def free_bytes(path: Path) -> int:
 
 
 def video_args(in_wh, out_wh, fps: float, quality: str, encoder: str, crf, preset, crt: float,
-               enc_threads: int = 4) -> list[str]:
+               enc_threads: int = 4, yuv_in: bool = False) -> list[str]:
     """Filter chain + encoder. Colour conversion happens at the small internal size (cheap), then a
-    nearest-neighbour upscale; 4:2:0 subsampling after the upscale keeps pixel edges exact."""
+    nearest-neighbour upscale; 4:2:0 subsampling after the upscale keeps pixel edges exact.
+    yuv_in: frames arrive as BT.709 NV12 at the output size (converted on the GPU), so nothing is
+    scaled or converted here."""
     W, H = in_wh
     OW, OH = out_wh
     line = max(2, OH // H)
     grid = [f"drawgrid=w=iw:h={line}:t=1:c=black@{crt:.3f}"] if crt > 0 else []
+    if yuv_in:
+        vf = ["format=yuv420p"] if (quality == "lossless" or encoder != "vt") else ["format=nv12"]
+        gop = max(1, int(round(fps / 2)))
+        color = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
+        if quality == "lossless":
+            venc = ["-c:v", "ffv1", "-level", "3", "-g", "1", "-slices", "16", "-slicecrc", "1",
+                    "-threads", str(enc_threads)]
+        elif encoder == "vt":
+            q = {"draft": 50, "youtube": 70, "high": 80}.get(quality, 70) if crf is None else int(crf)
+            venc = ["-c:v", "h264_videotoolbox", "-profile:v", "high", "-q:v", str(q),
+                    "-g", str(gop), "-bf", "0", "-prio_speed", "0"] + color
+        else:
+            c = {"draft": 26, "youtube": 16, "high": 12}.get(quality, 16) if crf is None else crf
+            p = preset or {"draft": "veryfast", "youtube": "faster", "high": "medium"}.get(quality, "faster")
+            venc = ["-c:v", "libx264", "-preset", p, "-crf", f"{c}", "-profile:v", "high",
+                    "-g", str(gop), "-keyint_min", str(gop), "-bf", "2", "-flags", "+cgop",
+                    "-x264-params", f"scenecut=0:threads={enc_threads}:lookahead_threads=1:"
+                                    "colorprim=bt709:transfer=bt709:colormatrix=bt709",
+                    "-pix_fmt", "yuv420p"] + color
+        return ["-filter_threads", "1", "-vf", ",".join(vf)] + venc
     if quality == "lossless":
         vf = [f"scale={OW}:{OH}:flags=neighbor"] + grid + ["format=gbrp"]
         venc = ["-c:v", "ffv1", "-level", "3", "-g", "1", "-slices", "16", "-slicecrc", "1",

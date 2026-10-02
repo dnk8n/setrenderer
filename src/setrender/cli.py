@@ -109,6 +109,9 @@ def cmd_render(args) -> int:
     out_wh = encode.parse_resolution(args.resolution)
     in_wh = (int(config.get_path(cfg, "canvas.width", 480)), int(config.get_path(cfg, "canvas.height", 270)))
     crt = float(config.get_path(cfg, "canvas.crt", 0.2))
+    from . import scenes
+    if scenes.native(cfg):          # drawn at the output resolution, already YUV
+        in_wh, crt = out_wh, 0.0
     acodec = args.audio_codec
     ext = encode.container_for(args.quality, acodec)
     out = Path(args.output).expanduser() if args.output else Path("out") / f"{src.stem}.{cfg.get('name', 'render')}{ext}"
@@ -134,16 +137,16 @@ def cmd_render(args) -> int:
 
     bands = cfg.get("bands")
     an, ah, cpath = get_analysis(src, args.start, args.duration, bands, args.no_cache)
-    from . import scenes
     engine_info = scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
-    seed = make_seed(args.seed, ah, cfg, args.start)
+    if scenes.native(cfg):
+        cfg["_clip"].update(width=out_wh[0], height=out_wh[1])
+    # engines that work in absolute set time keep one variation seed for every slice
+    seed = make_seed(args.seed, ah, cfg, 0.0 if scenes.native(cfg) else args.start)
     title = _title(src, args.title)
     n_frames = int(round(an.duration * fps))
-    vargs = encode.video_args(in_wh, out_wh, fps, args.quality, args.encoder, args.crf, args.preset, crt)
-
-    jobs, enc_threads = plan_budget(args.cpu, args.encoder, args.quality, scenes.engine_of(cfg) == "cropcircle")
+    jobs, enc_threads = plan_budget(args.cpu, args.encoder, args.quality, scenes.gpu(cfg))
     vargs = encode.video_args(in_wh, out_wh, fps, args.quality, args.encoder, args.crf, args.preset, crt,
-                              enc_threads=enc_threads)
+                              enc_threads=enc_threads, yuv_in=scenes.pix_fmt(cfg) == "nv12")
     gop = max(1, int(round(fps / 2)))
     chunk_frames = max(gop, int(round(args.chunk * fps / gop)) * gop)
     parts = out.with_name(out.name + ".parts")
@@ -275,14 +278,20 @@ def cmd_still(args) -> int:
     scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
     fps = float(args.fps)
     tl = Timeline(an, fps, cfg.get("smoothing", {}))
-    scene = scenes.make(cfg, tl, an, np.random.default_rng(make_seed(args.seed, ah, cfg, args.start)),
-                        _title(src, args.title))
+    if scenes.native(cfg):
+        cfg["_clip"].update(width=1920, height=1080)
+    scene = scenes.make(cfg, tl, an, np.random.default_rng(
+        make_seed(args.seed, ah, cfg, 0.0 if scenes.native(cfg) else args.start)), _title(src, args.title))
     out = Path(args.output or "still.png")
     frames = [int(float(x) * fps) for x in args.at.split(",")]
     W = int(config.get_path(cfg, "canvas.width", 480))
     H = int(config.get_path(cfg, "canvas.height", 270))
     for k, f in enumerate(frames):
-        surf = pygame.image.frombuffer(scene.frame(min(f, tl.n - 1)), (W, H), "RGBA" if scene.pix_fmt == "rgba" else "RGB")
+        if scene.pix_fmt == "nv12":
+            W, H = 1920, 1080
+            surf = pygame.image.frombuffer(scene.frame_rgba(min(f, tl.n - 1)), (W, H), "RGBA")
+        else:
+            surf = pygame.image.frombuffer(scene.frame(min(f, tl.n - 1)), (W, H), "RGBA" if scene.pix_fmt == "rgba" else "RGB")
         mult = max(1, 1920 // W)
         big = pygame.transform.scale(surf, (surf.get_width() * mult, surf.get_height() * mult))
         p = out if len(frames) == 1 else out.with_name(f"{out.stem}_{k:02d}{out.suffix}")
