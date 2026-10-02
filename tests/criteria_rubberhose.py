@@ -358,12 +358,14 @@ def _r5_r14(full, set_audio):
         and cf.get("A12_audio_sample_identical", False), **bs, av_diff_frames=cf["A7_av_duration_diff_frames"],
         audio_identical=cf.get("A12_audio_sample_identical"))
     side = json.loads(Path(str(full) + ".json").read_text())
-    log = ROOT / "work" / "load_full_rubberhose.log"
-    loads = [float(ln.split()[1]) for ln in log.read_text().splitlines() if len(ln.split()) > 1] if log.exists() else []
+    # the render prints the 1-minute load average with its progress every 5 s
+    log = ROOT / "work" / "full_render_rubberhose.log"
+    loads = [float(x) for x in re.findall(r"frames .* load ([0-9.]+)", log.read_text())] if log.exists() else []
     eng = side.get("engine", {})
     gpu = eng.get("gpu", {})
     rec("R14", bool(loads) and max(loads) <= 7.5 and isinstance(gpu, dict) and "Metal" in str(gpu.get("backend_type")),
         max_load_1m=max(loads) if loads else None, median_load_1m=float(np.median(loads)) if loads else None,
+        samples_over_7=int(sum(x > 7 for x in loads)), samples=len(loads),
         render_min=round(side["render_seconds"] / 60, 1),
         realtime_ratio=round(side["audio"]["duration"] / side["render_seconds"], 2), gb=round(side["bytes"] / 1e9, 2),
         gpu=gpu, classifier=eng.get("sound_classifier"), yuv_on_gpu=scenes.pix_fmt({"engine": "rubberhose"}) == "nv12",

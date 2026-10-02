@@ -19,7 +19,7 @@ canvas:
 encode:
   vt_q: 58            # Apple VideoToolbox quality (--crf overrides)
   crf: 18             # x264 CRF when --encoder x264
-  est_mbps: 26        # for the free-disk-space check
+  est_mbps: 14        # for the free-disk-space check (a 2 h set came to 10.3 GB)
 
 film:
   grade: warm         # warm | twostrip | mono | clean
