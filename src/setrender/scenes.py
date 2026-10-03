@@ -126,6 +126,14 @@ def _prepare_hose(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir
     return out
 
 
+def highlight_acts(cfg: dict, title: str, rng):
+    """Per-act highlight moments for `setrender reel --per-act` (templates built from acts only)."""
+    if engine_of(cfg) == "rubberhose":
+        from .hose.scene import highlight_acts as ha
+        return ha(cfg, title, rng)
+    return None
+
+
 def highlight_hints(cfg: dict, title: str, rng):
     """Template-specific highlight moments for `setrender reel` (needs prepare() first)."""
     if engine_of(cfg) == "rubberhose":

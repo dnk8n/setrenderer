@@ -321,7 +321,15 @@ def cmd_reel(args) -> int:
     st = cmusic.build(an, ex, 0.0)
     title = _title(src, args.title)
     hints, intro, outro = scenes.highlight_hints(cfg, title, np.random.default_rng(make_seed(args.seed, ah, cfg, 0.0)))
-    clips = reel.choose(an, st, args.clips, args.length, hints, intro, outro)
+    per_act = scenes.highlight_acts(cfg, title, np.random.default_rng(make_seed(args.seed, ah, cfg, 0.0))) \
+        if args.per_act else None
+    if args.per_act and per_act is None:
+        log("note: --per-act needs a template built from acts (rubberhose); cutting the usual reel")
+    if per_act:
+        acts, extras, intro, outro, _bar = per_act
+        clips = reel.choose_acts(an, acts, extras, args.length)
+    else:
+        clips = reel.choose(an, st, args.clips, args.length, hints, intro, outro)
     for k, c in enumerate(clips):
         log(f"clip {k + 1:2d}: {c.t0 // 60:3.0f}:{c.t0 % 60:05.2f}  {c.dur:.2f}s  {c.why}")
     out = Path(args.output) if args.output else Path("out") / f"{src.stem}.{name}_highlights.mp4"
@@ -460,6 +468,8 @@ def main(argv=None) -> int:
     rl.add_argument("--clips", type=int, default=None,
                     help="number of clips including the title and the end (default: 10-15, whichever fills --length best)")
     rl.add_argument("--length", type=float, default=30.0, help="target reel length in seconds")
+    rl.add_argument("--per-act", action="store_true",
+                    help="one clip per act (each boss) on its best moment, plus a map walk and an intermission")
     rl.add_argument("--source", help="full render to cut from (default: out/<name>.<template>.mov if complete)")
     rl.add_argument("--cpu", type=float, default=7, help="CPU budget when clips have to be rendered")
     rl.add_argument("--nice", type=int, default=10, help="process priority niceness (0-20)")

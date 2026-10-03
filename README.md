@@ -96,7 +96,7 @@ Things to look out for: a jazz horn that pops in when the classifier hears brass
 
 ### Highlight reels
 
-`setrender reel <audio> -t <template>` cuts about 30 s of whole-beat clips (10 to 15 clips of 2 to 3 s, whichever fills the length best), opening on the title and closing on the end. The clips in between are spread evenly through the set, each on the most salient moment of its stretch (drops, energy jumps, section starts and whatever the template flags, such as supers, knockouts and gags). It cuts from the full render when one exists, or renders just the clips. `--phone` adds a 720p copy.
+`setrender reel <audio> -t <template>` cuts about 30 s of whole-beat clips (10 to 15 clips of 2 to 3 s, whichever fills the length best), opening on the title and closing on the end. The clips in between are spread evenly through the set, each on the most salient moment of its stretch (drops, energy jumps, section starts and whatever the template flags, such as supers, knockouts and gags). It cuts from the full render when one exists, or renders just the clips. `--phone` adds a 720p copy. For rubberhose, `--per-act` cuts one clip per boss instead, each on that fight's best moment (a Super Art, the knockout, a save, a lost take's TAKE card or a transformation, varied from boss to boss), plus a map walk and an intermission, in set order; `--length 30` gives 15 clips of about 2 s and `--length 120` about 8 s each, every cut on a beat.
 
 ## Completeness
 

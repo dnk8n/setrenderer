@@ -130,6 +130,46 @@ def choose(an: Analysis, st, n: int | None = None, length: float = 30.0, hints=N
     return clips
 
 
+# where the moment sits inside its clip (0 = at the start): a save or a lost take needs its run-up
+LEAD = {"super": 0.22, "knockout": 0.45, "save": 0.6, "take lost": 0.65, "transformation": 0.22}
+LEAD_SHORT = {"take lost": 0.0}     # a clip of a couple of seconds opens straight on the TAKE card
+
+
+def choose_acts(an: Analysis, acts: list[dict], extras: list[dict], length: float = 30.0,
+                extra_kinds: tuple = ("map", "vaudeville", "singalong")) -> list[Clip]:
+    """One clip per act on its best moment (varied, so it isn't the same kind of moment every time) plus
+    one map walk and one other intermission, in set order, filling `length` with whole-beat clips."""
+    period = 60.0 / max(an.tempo, 60)
+    beats = an.beats if len(an.beats) > 8 else np.arange(0.0, an.duration, period)
+    items = []
+    used: dict[str, int] = {}
+    for act in acts:
+        if not act["moments"]:
+            continue
+        t, kind, w = max(act["moments"], key=lambda mm: mm[2] - 0.4 * used.get(mm[1], 0))
+        used[kind] = used.get(kind, 0) + 1
+        short = length / max(1, len(acts) + 2) < 4.0
+        lead = LEAD_SHORT.get(kind, LEAD.get(kind, 0.3)) if short else LEAD.get(kind, 0.3)
+        items.append((t, f"{kind} {act['name']}", lead))
+    picked = []
+    for want in ("map", "intermission"):
+        pool = [e for e in extras if (e["kind"] == "map") == (want == "map")]
+        if pool:
+            e = pool[len(pool) // 2]
+            mid = (e["t0"] + e["t1"]) / 2
+            picked.append((mid, e["kind"] if want == "map" else f"intermission ({e['kind']})", 0.5))
+    items = sorted(items + picked)
+    n = len(items)
+    total_beats = int(round(length / period))
+    nbs = [total_beats // n + (1 if k < total_beats % n else 0) for k in range(n)]
+    clips = []
+    for (t, why, lead), nb in zip(items, nbs):
+        k0 = int(np.clip(np.searchsorted(beats, t - lead * nb * period), 0, len(beats) - nb - 1))
+        t0, t1 = float(beats[k0]), float(beats[k0 + nb])
+        clips.append(Clip(t0, round((t1 - t0) * 60) / 60, why))
+    return clips
+
+
 def build(clips: list[Clip], sources: list[tuple[Path, float]], audio: Path, out: Path, fps: float = 60.0,
           q: int = 62, fade_in: float = 0.3, fade_out: float = 1.0, scale: tuple[int, int] | None = None,
           audio_bitrate: str = "320k") -> None:

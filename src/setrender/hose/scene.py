@@ -82,6 +82,25 @@ def highlight_hints(cfg: dict, title: str, rng):
     return hints, P.intro[1], P.outro[0]
 
 
+def highlight_acts(cfg: dict, title: str, rng):
+    """For a reel with one clip per boss: each act's candidate moments (super arts, the knockout, a save,
+    a lost take, a dramatic phase change), plus the intermissions and the overworld map walks."""
+    full, st, m, seed, cast, P = running_order(cfg, title, rng)
+    bar = 4 * m.period
+    acts = []
+    for a in P.acts:
+        F = combat.Fight(m, P, a, bosses.BY_NAME[a.boss], seed + a.k * 7919, cfg.get("story", {}) or {})
+        mom = [(t, "super", 1.2) for t in F.supers]
+        mom.append((a.ko, "knockout", 1.0))
+        mom += [(r[0], "save", 0.95) for r in F.revives]
+        mom += [(tk.end, "take lost", 0.85) for tk in a.takes if not tk.won]
+        if len(a.phases) > 2:
+            mom.append((a.phases[2], "transformation", 1.15 if a.boss in ("hamhock", "projectionist") else 0.4))
+        acts.append({"name": a.boss, "title": bosses.BY_NAME[a.boss]["title"], "t0": a.t0, "t1": a.t1, "moments": mom})
+    extras = [{"kind": i.kind, "t0": i.t0, "t1": i.t1} for i in P.inters]
+    return acts, extras, P.intro[1], P.outro[0], bar
+
+
 class HoseScene:
     pix_fmt = "nv12"
 
