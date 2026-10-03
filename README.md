@@ -116,12 +116,12 @@ The full lists are on each [template's page](docs/templates/README.md).
 
 ```mermaid
 flowchart LR
-  A["Your set<br/>(WAV / AIFF)"] --> B["Listen<br/>beats, bars, sections,<br/>5 frequency bands, key,<br/>loudness, sounds"]
-  B --> C["Plan<br/>per-frame signals,<br/>the set's own seed,<br/>acts, shots, gags"]
-  T["Template<br/>(a YAML file)"] --> C
-  C --> D["Draw<br/>every frame is a pure<br/>function of its number<br/>(CPU or GPU)"]
-  D --> E["Encode<br/>Apple media engine,<br/>original audio,<br/>resumable chunks"]
-  E --> F["YouTube-ready video<br/>+ a JSON receipt"]
+  A["Your set"] --> B["Listen<br/>beats, bands,<br/>sections, sounds"]
+  B --> C["Plan<br/>signals per frame,<br/>the set's own seed"]
+  T["Template"] --> C
+  C --> D["Draw<br/>frame i,<br/>CPU or GPU"]
+  D --> E["Encode<br/>media engine,<br/>resumable chunks"]
+  E --> F["Video<br/>+ receipt"]
 ```
 
 - **Free and local.** ffmpeg, librosa, NumPy/SciPy, pygame-ce and wgpu, all open source and all on your machine. Nothing is uploaded anywhere.
