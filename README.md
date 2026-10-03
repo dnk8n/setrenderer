@@ -1,103 +1,173 @@
-# setrender
+<p align="center">
+  <img src="docs/media/hero.jpg" alt="Three stills from setrender videos: an 8-bit rave on a burned-out car stage, a first-person crowd at a farm festival under an aurora, and a 1930s rubber-hose cartoon of a pepper shaker and a rye loaf fighting a teapot" width="100%">
+</p>
 
-Turn a DJ set (WAV/AIFF) into a beat-synced, YouTube-ready music video, styled by a template.
+<h1 align="center">setrender</h1>
+
+<p align="center">
+  <b>Your DJ set, as a music video that dances to it.</b><br>
+  Give it a WAV or AIFF, pick a world, and get a YouTube-ready video where every kick, hi-hat, breakdown and drop moves something on screen.
+</p>
+
+<p align="center">
+  <a href="#try-it-in-five-minutes">Quick start</a> ·
+  <a href="docs/templates/README.md">Gallery</a> ·
+  <a href="docs/cookbook.md">Cookbook</a> ·
+  <a href="docs/how-it-works.md">How it works</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">
+  <img alt="macOS on Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20Silicon-111?logo=apple">
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Output: YouTube-ready 1080p60" src="https://img.shields.io/badge/output-YouTube%20ready%201080p60-c00?logo=youtube&logoColor=white">
+  <img alt="Runs locally, no cloud" src="https://img.shields.io/badge/runs-100%25%20local-2a7">
+  <a href="docs/criteria/README.md"><img alt="Definition of done: automated checks" src="https://img.shields.io/badge/definition%20of%20done-55%20automated%20checks-6a5acd"></a>
+</p>
+
+---
+
+## Three worlds, one command
+
+<table>
+  <tr>
+    <td width="33%"><a href="docs/templates/knisper.md"><img src="docs/media/knisper.jpg" alt="knisper: pixel-art crowd dancing in front of a burned-out car DJ stage"></a></td>
+    <td width="33%"><a href="docs/templates/cropcircle.md"><img src="docs/media/cropcircle.jpg" alt="cropcircle: a 3D crowd of pixel people at night under an aurora, jellyfish glowing in the trees"></a></td>
+    <td width="33%"><a href="docs/templates/rubberhose.md"><img src="docs/media/rubberhose.jpg" alt="rubberhose: two cartoon heroes squaring up to a giant angry red teapot"></a></td>
+  </tr>
+  <tr>
+    <td><b><a href="docs/templates/knisper.md">knisper</a></b><br>An 8-bit underground rave. A burned-out car is the DJ booth, jellyfish hang in blocky trees, and a crowd of every kind bounces on a lit dancefloor, with nods to the C64, Amiga, Mega Drive, N64 and NES.</td>
+    <td><b><a href="docs/templates/cropcircle.md">cropcircle</a></b><br>A night at a farm festival, seen first-person in 3D, from sunset to sunrise. UFOs lay crop circles, a drone flies the fields, people arrive through the corn, dance, queue for the loos and go home.</td>
+    <td><b><a href="docs/templates/rubberhose.md">rubberhose</a></b><br>A 1930s rubber-hose cartoon boss rush with original characters. One boss per act, hearts, ghosts, lost takes, super attacks on the drops, intermissions in the breakdowns and an easter egg every minute.</td>
+  </tr>
+</table>
+
+Everything on screen answers to the music: the beat tracker finds every kick, five frequency bands drive different things on screen, the set's sections change the scenery, and the drops land. The same set always renders the same video, and two different sets never look alike.
+
+## Try it in five minutes
+
+You need a Mac with Apple Silicon, [Homebrew](https://brew.sh) and a DJ set as WAV or AIFF.
 
 ```bash
-./install.sh                                   # ffmpeg via Homebrew + local venv
-.venv/bin/setrender render my_set.wav          # whole set -> out/my_set.knisper.mov
-.venv/bin/setrender render my_set.wav -t cropcircle   # first-person 3D farm festival (GPU)
-.venv/bin/setrender render my_set.wav -t rubberhose   # 1930s rubber-hose cartoon boss rush (GPU)
-.venv/bin/setrender reel my_set.wav -t rubberhose     # 30 s highlight reel, cut on the beat
-.venv/bin/setrender render my_set.wav --start 600 --duration 30   # preview a slice
-.venv/bin/setrender still my_set.wav --at 60,600,3600             # PNG snapshots
-.venv/bin/setrender templates                  # list templates and their keywords
-.venv/bin/setrender verify out/my_set.knisper.mov --audio my_set.wav   # check sync/format
+brew install uv git
+git clone https://github.com/dnk8n/setrenderer.git && cd setrenderer
+./install.sh
 ```
 
-## How it works
-
-| Stage | Tool | Notes |
-|---|---|---|
-| Decode | ffmpeg (soxr resampler) | any bit depth / rate / channel count |
-| Analysis | librosa + numpy/scipy | 5 frequency bands, onsets, kick-weighted beat tracking in 90 s chunks (follows tempo drift), bars, sections (self-similarity novelty), set fingerprint. Cached in `~/.cache/setrender`. |
-| Scene | pygame-ce (SDL) | pixel art at 480x270, every frame a pure function of the frame index, so rendering is deterministic and parallel |
-| Encode | ffmpeg + Apple VideoToolbox (media engine) | nearest-neighbour upscale, CRT scanlines, H.264 High 4:2:0 BT.709, closed GOP, faststart, lossless PCM audio in MOV; `--encoder x264` for software encoding |
-
-Rendering is split into 60 s chunks (`--chunk`), each written atomically, so an interrupted render resumes when you rerun the same command. `--cpu 7` (default) caps jobs and encoder threads to roughly that load average; `--nice` lowers priority.
-
-## Output presets
-
-| `--quality` | Video | Audio (default) | Use |
-|---|---|---|---|
-| `youtube` (default) | H.264, VideoToolbox q70 (or x264 CRF 16) | PCM, bit-identical to source | upload |
-| `high` | H.264 CRF 12, preset medium | PCM | archival-ish upload |
-| `draft` | H.264 CRF 26, veryfast | PCM | quick checks |
-| `lossless` | FFV1 RGB in MKV | PCM | clips/masters (very large) |
-
-`--audio-codec aac` gives a small MP4; `--encoder x264` uses the software encoder (better per bit, much more CPU); `--resolution 1440p|2160p` for higher-res uploads (the pixel art scales by integer factors at 1080p and 2160p). The CLI estimates output size and refuses to start without enough disk (`--force` overrides).
-
-## Templates
-
-A template is a YAML `.tpl` file in `templates/`. It chooses scene elements, palettes, which audio band drives what, keywords, and how each set varies. Override anything without editing the file:
+Render a 30-second preview from ten minutes into your set (tip: type the command, then drag your audio file into the Terminal window to paste its path):
 
 ```bash
-setrender render set.wav --keywords night,acid            # template-defined looks
-setrender render set.wav --set elements.crowd.count=80 --set canvas.crt=0
-setrender render set.wav --params my_overrides.yaml --seed 3
+.venv/bin/setrender render "my set.wav" --start 600 --duration 30
+open out/
 ```
 
-Precedence: template < `--params` < `--keywords` < `--set`. Every render writes `<output>.json` with the resolved parameters, audio hash, tool versions and a command that reproduces it exactly.
+Happy with it? Drop `--start` and `--duration` to render the whole set. A two-hour set takes about 40 to 65 minutes on an M1 Pro, keeps the machine responsive, and picks up where it left off if you stop it.
 
-**Why sets look different:** the variation seed combines `--seed` with the audio's SHA-256, so palettes order, sky/floor style per section, crowd make-up, trees and jellyfish all differ per set. The set's key rotates the starting palette, and its tempo, energy and section structure drive the motion.
+New to the Terminal? **[Getting started](docs/getting-started.md)** walks through every step, including uploading to YouTube.
 
-## Templates in the box
+## A taste of what you can ask for
 
-| Template | Engine | Look |
-|---|---|---|
-| `knisper` | pygame (CPU), 480x270 pixel art | 8-bit underground rave: burned-out car stage, jellyfish trees, bouncing crowd, C64/Amiga/Mega Drive/N64/NES nods |
-| `cropcircle` | WebGPU on Metal (GPU), 640x360 HD-2D | first-person night at a farm festival, sunset to sunrise: crop circles, jellyfish in a beat-gusting wind, a car built into the DJ stage, a crowd that comes and goes |
-| `rubberhose` | WebGPU on Metal (GPU), vector ink and paint at the output resolution | a 1930s rubber-hose cartoon boss rush in the spirit of Cuphead, with original characters: one boss fight per act (lost a take or two, then won), hearts, super cards, ghosts and revives, intermissions, an easter egg a minute and a 24 fps film print |
+```bash
+setrender render set.wav -t rubberhose                          # the cartoon boss rush
+setrender render set.wav -t cropcircle -k aurora,packed         # keywords switch on looks
+setrender render set.wav -k acid --seed 3                       # another take on the same set
+setrender render set.wav --set elements.crowd.count=80          # change any value in a template
+setrender still  set.wav -t rubberhose --at 60,600,3600         # snapshots before you commit
+setrender reel   set.wav -t rubberhose --per-act --length 30    # a beat-cut trailer, one clip a boss
+setrender render set.wav --resolution 2160p --audio-codec aac   # 4K, as a small MP4
+setrender render set.wav --cpu 4                                # stay gentle while you work
+```
 
-A template picks its scene engine with `engine:` (default: the pygame pixel-art engine).
+(Inside the repo folder, `setrender` is `.venv/bin/setrender`, or run `source .venv/bin/activate` once.)
 
-### cropcircle
+<p align="center">
+  <img src="docs/media/knisper-variations.jpg" alt="Six versions of the same moment in knisper: the default, and with the keywords acid, c64, amiga, night plus packed, and a different seed" width="100%"><br>
+  <sub>The same second of the same set in knisper: the default, four keyword looks, and <code>--seed 7</code>.</sub>
+</p>
 
-| Stage | Tool | Notes |
-|---|---|---|
-| Extra analysis | Apple SoundAnalysis built-in classifier (Core ML, on-device; Neural Engine capable), librosa, scipy | 303 sound classes every 1.5 s (cowbell, theremin, sax, vocals, scratching, laughter, phones...), LUFS (BS.1770 K-weighting), key per window in Camelot notation, 3-band waveform. One pass, about 50 s for a 2 h set, cached next to the analysis. |
-| Scene | wgpu (WebGPU, Metal backend) | supersampled HDR 3D: instanced corn (30k plants) with crop circles laid in the vertex shader, low-poly farm, pixel-art billboards (front, back and side views), additive volumetric beams, height fog, bloom, ACES, 5-bit ordered dither, console filters |
-| Direction | numpy | crowd schedules (arrive, dance, queue, sit, leave), camera shots cut on phrases and drops, events triggered by structure, sounds and bar numbers. Every frame is still a pure function of its index. |
-| Encode | same as above | 640x360 upscaled 3x to 1080p, VideoToolbox q60 by default for this template |
+The **[cookbook](docs/cookbook.md)** has a recipe for each of these and more: highlight reels, 4K, lossless masters, batch renders, reproducing a render from its receipt, and checking a video against the criteria.
 
-It renders at about 120 fps with two jobs (`--cpu 5`, about 61 minutes for a 2 h set at a load of about 4–5) or about 190 fps with three (`--cpu 7`). The only text on screen is tempo and music stats: BPM, bar.beat, phrase, Camelot key, LUFS, a five-band meter and a CDJ-style waveform. Keywords: `aurora`, `anime`, `blocky`, `packed`, `intimate`, `foggy`, `clear`, `frantic`, `chill`, `partytime`, `retro`, `hd`, `smooth`, `nohud`, `dawn`.
+## Every set looks like itself
 
-Things to look out for: UFOs that lay crop circles through the night (one also turns up whenever the classifier hears a theremin), a cow with a cowbell when the classifier hears one, a sax player when it hears a sax, a vibing cat on the car roof, Tetris played with hay bales, the Konami code at bar 1337, someone missing at bar 404, portaloo doors that fly open on the beat, row-the-boat in long breakdowns, conga lines, YMCA, Pac-Man, a Nyan cat, a dancing hot dog and Game Boy/VHS/CGA filter moments.
+<p align="center">
+  <img src="docs/media/two-sets.jpg" alt="Two different 30-second test sets rendered with the same templates at the same moment: different palettes, crowds, heroes and bosses" width="80%"><br>
+  <sub>Two different 30-second test sets (cut from different hours of a mix), same templates, same moment, no settings changed.</sub>
+</p>
 
-### rubberhose
+The variation seed is built from the audio itself, so palettes, crowds, stages, casts and running orders differ from set to set, while the set's tempo, key, energy and structure drive the motion. Render the same set twice and you get the same video, frame for frame. Want a different take? Change `--seed`.
 
-| Stage | Tool | Notes |
-|---|---|---|
-| Running order | numpy, the shared analysis and the cropcircle sound classifier (Core ML, Neural Engine capable) | the whole set is planned up front: one act per boss cut at section starts, each played as takes (lost takes restart at a section change, the last is won), three boss phases, READY?/GO!/TAKE n/KNOCKOUT! cards, intermissions from long breakdowns, gags cued by sounds and an easter egg a minute |
-| Combat | numpy (`hose/combat.py`) | Cuphead's rules on the music's clock: boss shots and sidekicks fired on beats and aimed by role (a hit, a dodge the hero hops, ducks or dashes, a pink shot to parry or a parry mistimed, a near miss that skims a head or lands at the toes, a sidekick popped by the peashooters), every path checked against both heroes; 3 HP each, floating hearts, ghosts the partner can parry back to life, five super cards filled by damage and parries, EX shots for one card and Super Arts for all five on drops |
-| Drawing | wgpu (WebGPU, Metal backend) | every shape is a signed-distance primitive on an instanced quad (ellipses, tapered capsules, quadratic hose curves, pie-cut pupils, stars, arcs, hearts, sunbursts, waves), with shared outlines, ink that is heavier on the shadow side, cel shading, watercolour washes for backgrounds, and line boil that changes with every drawing |
-| Timing | | characters are drawn on a 24-drawings-per-second clock, as in 1930s cartoons and Cuphead, re-phased so a new drawing always lands on the beat; the camera and shots move at 60 fps |
-| Film | WGSL | gate weave, flicker with a kick pump, grain at 24 fps, dust, hairs and scratches, halation, soft focus, vignette, iris transitions, a warm print grade (or `twostrip`, `mono`, `clean`) |
-| Encode | GPU → NV12 → VideoToolbox | frames are converted to BT.709 NV12 on the GPU, so ffmpeg only encodes |
+## Hidden in the videos
 
-It renders at about 1.45x real time with two jobs (`--cpu 6`, about 80 minutes for a 2 h set at a load of 4–6) and about 10 GB per 2 h. Slices are drawn in absolute set time, so `--start/--duration` gives exactly the frames of the full render.
+Things to look out for, without spoiling all of them:
 
-The heroes are two kitchen mascots (a pepper shaker, a rye loaf, a salt shaker, a light bulb or a sugar bowl); a set title that names one of them casts it. The thirteen bosses are a gramophone in a ballroom, a sun and a storm cloud fought in biplanes, a kettle in a kitchen, a pipe organ in a graveyard whose pipes are a spectrum, an octopus at sea, a jukebox robot on a rooftop whose neon tubes are a spectrum, an old oak in the forest, the Jelly Queen over a farm orchard with jellyfish hanging in the trees, DJ Hamhock (a purple hog on the decks who turns into a dragon for the last phase) on a festival field with a burned-out car DJ booth, lasers, a smoke machine, pride flags, hay bales, a bar pouring German beer and mate soda and a crowd of goats, black sheep and pixel stick men, Lava Louie in a psychedelic underground rave, Don Cartridge (a mob-boss game cartridge with a joypad tommy gun) in a speakeasy street of arcade cabinets, and the Projectionist, who fights from the cinema stage in front of a countdown leader and burns holes through the film when it changes phase. A cheeky bottle of mate soda (a parody mascot) is a side villain who turns up among everyone's sidekicks. Keywords: `twostrip`, `mono`, `clean`, `pristine`, `steady`, `nohud`, `short`, `long`, `frantic`, `chill`, `sky`, `spooky`, `classic` (the first eight bosses), `party` (the five newest), `flawless` (every boss beaten first time), `hardcore` (more lost takes), `nosidekicks`.
+- a cow with a cowbell, but only when Apple's on-device sound classifier actually hears a cowbell in your set (cropcircle)
+- the Konami code at bar 1337, and someone missing at bar 404 (cropcircle)
+- a skeleton playing its ribs at bar 1929 and a steamboat at bar 1928, for the cartoons of those years (rubberhose)
+- a film burn at bar 404, a ghost when it hears a theremin, and 26 kinds of easter egg, about one a minute and never the same one twice in ten minutes (rubberhose)
+- thirteen bosses, from a gramophone in a ballroom to a pig DJ who turns into a dragon (rubberhose)
 
-How a fight plays: each act is one boss, beaten exactly once. Most fights take a retake or two: each hero has three hearts, a boss shot that lands costs one (the hero is knocked back and blinks, untouchable, for a moment), and at zero the hero drops while their pink ghost floats up. The partner can run under it and parry it to bring them back with one heart; if nobody does, the ghost floats off and leaves a little headstone. When both are down the boss laughs, a TAKE card's clapperboard slams on the downbeat with a strip of film showing how far they got, and the fight restarts from READY? with the boss fresh. Each hero's five super cards fill from damage dealt and parries: one card throws an EX (a peppercorn bomb, a rye slice, a salt crystal, a bolt, a sugar cube), and a full hand is never spent on an EX: it fires a Super Art (a Sneeze Beam, a giant spirit belly-flop or a Bright Idea flash) on the next drop or big downbeat and spends all five. Fights are fierce: two to five shots a bar plus a barrage on every drop, five-way spreads late on, sidekicks in most bars, and most bosses take two or three takes to beat. Every boss has sidekicks that join in more as the fight goes on: runners along the floor that the heroes hop (one after the other, if it carries on into the partner), flyers that swoop in at head height and have to be ducked, and poppers that crack the floor for two beats and burst up under a hero, who dashes clear. They can land hits, and the ones that don't get through are popped by the peashooters and tumble away dazed: walking records and winged quavers (gramophone), fire imps (sun), storm puffs (cloud), teacups and a boxing mouse (kettle), bats and grave hands (organ), crabs and flying fish (octopus), rolling nickels and winged 45s (jukebox), toadstools, bees and a mole (oak). Shots and sidekicks are planned to skim heads and land at toes, about 2,500 near misses a set; the heroes flinch with shock lines and sweat, and the very closest get a YIKES!, PHEW!, WHOA!, CLOSE ONE! or HOO BOY!. A pink parry can be mistimed (the hero jumps too soon and comes down into it, losing a heart); a good one sends a whole card flying to the HUD. Hearts float through on little wings now and then: the hurt hero leaps for them, sometimes high, and they are grabbed, missed by a whisker, or snatched by a sidekick at the last moment.
+<p align="center">
+  <img src="docs/media/rubberhose-moments.jpg" alt="Six rubberhose moments: the title card, a Super Art, a ghost floating up, a TAKE 2 clapperboard, a KNOCKOUT card and the overworld map" width="100%">
+</p>
 
-Bosses wear the damage of the take: plasters, a black eye, a bump, sweat, then smoke from the ears, plus their own: the kettle heats from teal to glowing red, organ pipes snap, the jukebox's neon dies tube by tube, the oak drops its leaves, the octopus gets bandaged, the cloud tears and drizzles, the sun gets sunspots.
+The full lists are on each [template's page](docs/templates/README.md).
 
-Things to look out for: a jazz horn that pops in when the classifier hears brass, a candlestick phone on ringtones, a black cat on a meow, a skeleton playing its ribs on xylophones (and at bar 1929, for The Skeleton Dance), a steamboat on a foghorn (and at bar 1928, for Steamboat Willie), a stork when a baby cries, a ghost on a theremin, a record being scratched, the audience cheering, the boss laughing, and a film burn at bar 404. On top of those, an easter egg turns up about once a minute (26 kinds, none twice within ten minutes): a cream pie in the boss's face, an anvil, the animator's pencil drawing on a moustache, a bomb bounced back at the boss, a fly on the projector lens, a hand-shadow rabbit or dog from the audience, the film slipping a frame, pride-flag balloons, a UFO after a cow and the burned-out DJ car (nods to the other templates), a jellyfish, an acid smiley, a mirror ball, a cassette and a pencil, an 8-bit invader, the Konami code, a walking metronome, a cuckoo clock, a paper aeroplane, a hot-air balloon band, a bat with a glowstick, a stagehand with a ladder, a green pipe, a ? block to bump, a bowling ball to hop and a banana peel.
+## How it works, in one picture
 
-### Highlight reels
+```mermaid
+flowchart LR
+  A["Your set<br/>(WAV / AIFF)"] --> B["Listen<br/>beats, bars, sections,<br/>5 frequency bands, key,<br/>loudness, sounds"]
+  B --> C["Plan<br/>per-frame signals,<br/>the set's own seed,<br/>acts, shots, gags"]
+  T["Template<br/>(a YAML file)"] --> C
+  C --> D["Draw<br/>every frame is a pure<br/>function of its number<br/>(CPU or GPU)"]
+  D --> E["Encode<br/>Apple media engine,<br/>original audio,<br/>resumable chunks"]
+  E --> F["YouTube-ready video<br/>+ a JSON receipt"]
+```
 
-`setrender reel <audio> -t <template>` cuts about 30 s of whole-beat clips (10 to 15 clips of 2 to 3 s, whichever fills the length best), opening on the title and closing on the end. The clips in between are spread evenly through the set, each on the most salient moment of its stretch (drops, energy jumps, section starts and whatever the template flags, such as supers, knockouts and gags). It cuts from the full render when one exists, or renders just the clips. `--phone` adds a 720p copy. For rubberhose, `--per-act` cuts one clip per boss instead, each on that fight's best moment (a Super Art, the knockout, a save, a lost take's TAKE card or a transformation, varied from boss to boss), plus a map walk and an intermission, in set order; `--length 30` gives 15 clips of about 2 s and `--length 120` about 8 s each, every cut on a beat.
+- **Free and local.** ffmpeg, librosa, NumPy/SciPy, pygame-ce and wgpu, all open source and all on your machine. Nothing is uploaded anywhere.
+- **Deterministic.** Each frame depends only on its number, the audio and the settings, so renders are reproducible, parallel and exact to the frame.
+- **Kind to your computer.** `--cpu` caps the load the render adds (7 by default on an 8-core Mac), frames are drawn on the GPU where the template allows, and the hardware encoder does the compression.
+- **Resumable.** Work is saved in one-minute chunks. Stop it, reboot, run the same command, and it carries on.
+- **Measured, not eyeballed.** What "done" means is written down as criteria, and scripts check each one. The templates in the box pass all of their automated checks.
 
-## Completeness
+Read **[how it works](docs/how-it-works.md)** for the full pipeline.
 
-`CRITERIA.md` defines "done" for the CLI and `knisper`; `tests/criteria.py` runs its automated checks and writes `work/criteria/report.json`. `CRITERIA-cropcircle.md` adds the cropcircle brief; `tests/criteria_cropcircle.py [--full out/<render>.mov]` writes `work/criteria-cropcircle/report.json`, and the latest results are in `CRITERIA_REPORT-cropcircle.md`. `CRITERIA-rubberhose.md` adds the rubberhose brief and the highlight reel; `tests/criteria_rubberhose.py [--full out/<render>.mov]` writes `work/criteria-rubberhose/report.json`.
+## Go deeper
+
+| I want to... | Read |
+|---|---|
+| install it and make my first video, step by step | [Getting started](docs/getting-started.md) |
+| see every template and what to look out for | [Templates](docs/templates/README.md) |
+| find a recipe for a specific task | [Cookbook](docs/cookbook.md) |
+| look up a command, an option or an output file | [Reference](docs/reference.md) |
+| understand the pipeline and why it is built this way | [How it works](docs/how-it-works.md) |
+| make my own template | [Make a template](docs/make-a-template.md) |
+| know what "complete" means and how it is checked | [Criteria](docs/criteria/README.md) |
+| fix a bug, add a feature or a whole new engine | [Contributing](CONTRIBUTING.md) |
+| point my coding agent at this repo | [AGENTS.md](AGENTS.md) |
+
+## Make it yours
+
+A template is a plain YAML file: palettes, which frequency band drives which element, how many people are in the crowd, which bosses fight, and keywords that bundle a look. Copy one, change it, and render with `-t path/to/yours.tpl`. When YAML is not enough, a new engine is a Python module that draws frame *i*. [Make a template](docs/make-a-template.md) shows both.
+
+## Contributing
+
+Ideas for new worlds, bug reports, docs fixes and code are all welcome, and so are contributions made with AI coding agents, as long as a person stands behind them. Start with **[CONTRIBUTING.md](CONTRIBUTING.md)**. Agents can read **[AGENTS.md](AGENTS.md)**, which most coding agents pick up on their own.
+
+## Requirements
+
+| | |
+|---|---|
+| Tested on | macOS on Apple Silicon (M1 Pro, 16 GB) |
+| Other systems | untested; `knisper` with `--encoder x264` is the likeliest to work, and the sound-cued gags need macOS |
+| Disk | about 10 to 20 GB per two hours of 1080p60 at the default quality; the render checks before it starts |
+| Time for a 2 h set | about 40 min (knisper), 60 min (cropcircle) or 65 min (rubberhose) on an M1 Pro |
+| Installs | ffmpeg (Homebrew), [uv](https://docs.astral.sh/uv/), and pinned Python packages in a local `.venv` |
+
+## Credits
+
+Built on the shoulders of [ffmpeg](https://ffmpeg.org), [librosa](https://librosa.org), [NumPy](https://numpy.org), [SciPy](https://scipy.org), [pygame-ce](https://pyga.me), [wgpu-py](https://github.com/pygfx/wgpu-py) and Apple's on-device [SoundAnalysis](https://developer.apple.com/documentation/soundanalysis) classifier. rubberhose is a love letter to 1930s rubber-hose animation and to the games it inspired; its characters, stages and lettering are original.
+
+## License
+
+No license has been chosen yet, so for now the code is not licensed for reuse. Until one is added, please open an issue before building on it.

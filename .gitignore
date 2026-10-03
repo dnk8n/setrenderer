@@ -35,3 +35,6 @@ previews/
 
 # OS metadata
 .DS_Store
+
+# the one exception: a few compressed screenshots for the docs (see docs/media/README.md)
+!docs/media/*.jpg
