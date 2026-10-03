@@ -23,6 +23,7 @@
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white">
   <img alt="Output: YouTube-ready 1080p60" src="https://img.shields.io/badge/output-YouTube%20ready%201080p60-c00?logo=youtube&logoColor=white">
   <img alt="Runs locally, no cloud" src="https://img.shields.io/badge/runs-100%25%20local-2a7">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="docs/criteria/README.md"><img alt="Definition of done: automated checks" src="https://img.shields.io/badge/definition%20of%20done-55%20automated%20checks-6a5acd"></a>
 </p>
 
@@ -188,4 +189,6 @@ Built on the shoulders of [ffmpeg](https://ffmpeg.org), [librosa](https://libros
 
 ## License
 
-No license has been chosen yet, so for now the code is not licensed for reuse. Until one is added, please open an issue before building on it.
+setrender is released under the [MIT License](LICENSE): use it, change it, build on it and ship what you make, commercially or not, as long as the copyright notice comes along. The videos you render from your own music are yours.
+
+The tools it runs on keep their own licenses (ffmpeg is LGPL/GPL and installed separately through Homebrew, pygame-ce is LGPL, and librosa, NumPy, SciPy and wgpu-py use permissive licenses).

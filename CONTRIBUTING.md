@@ -156,4 +156,4 @@ Everyone is welcome here: no dress code, no gender code, just bass. Please read 
 
 ## License
 
-A license has not been chosen yet. Until one is added, contributions can't be merged under clear terms, so please open an issue before starting substantial work.
+setrender is [MIT licensed](LICENSE). By contributing, you agree that your contribution is licensed under the same terms, and that you have the right to submit it (for AI-assisted work, that it contains nothing copied from sources under incompatible terms).
