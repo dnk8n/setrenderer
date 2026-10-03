@@ -6,10 +6,12 @@
 name: rubberhose
 engine: rubberhose
 description: >-
-  A cartoon revue in ten-minute acts: two rubber-hose heroes fight a giant boss on a painted stage,
-  three phases per fight, READY? and GO! cards, a KNOCKOUT and an iris-out at the end. Long breakdowns
-  become intermissions (a bouncing-ball sing-along, the overworld map, a vaudeville number), drops
-  land with a super attack, and everything on screen bounces on the kick.
+  A cartoon revue, one act per boss: two rubber-hose heroes fight a giant boss on a painted stage,
+  losing a take or two (three hearts each, ghosts the partner can parry back to life, a TAKE card and a
+  restart) before the KNOCKOUT. Super cards fill from damage and parries for EX shots and Super Arts,
+  long breakdowns become intermissions (a bouncing-ball sing-along, the overworld map, a vaudeville
+  number), drops land with a super attack, an easter egg turns up every minute, and everything on
+  screen bounces on the kick.
 
 canvas:
   width: 1920         # drawn at the output resolution (distance fields scale to any size)
@@ -31,8 +33,9 @@ film:
 boil: 1.0             # line boil (hand-inked wobble from drawing to drawing), 0 = steady lines
 
 story:
-  act_minutes: 10     # one boss fight per act
+  act_minutes: 10     # target act length; capped at one act per boss so each boss is beaten exactly once
   attack_rate: 1.0    # boss shots per bar, relative
+  retake_weights: [0.12, 0.43, 0.33, 0.12]   # chance of 0, 1, 2 or 3 lost takes before a fight is won
 
 # all eight by default; a list picks and orders the pool
 bosses: [gramophone, sun, cloud, kettle, organ, octopus, jukebox, oak]
@@ -57,6 +60,8 @@ smoothing:
 #   all five bands   -> organ pipes and the jukebox's neon tubes (a spectrum)
 #   sections         -> acts and boss phases; breakdowns -> intermissions; drops -> exclamation + super
 #   sound classifier -> gags (horns, phones, cats, xylophone skeletons, theremin ghosts, foghorn steamboat...)
+#   sections         -> where a lost take restarts the fight (the TAKE card lands on the downbeat)
+#   beats            -> every boss shot is fired on one and lands on one: hits, dodges, parries, revives
 
 keywords:
   twostrip: {film.grade: twostrip}
@@ -71,3 +76,5 @@ keywords:
   chill:    {story.attack_rate: 0.6}
   sky:      {bosses: [sun, cloud]}
   spooky:   {bosses: [organ, cloud, octopus]}
+  flawless: {story.retake_weights: [1, 0, 0, 0]}
+  hardcore: {story.retake_weights: [0, 0.2, 0.4, 0.4]}
