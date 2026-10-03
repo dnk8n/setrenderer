@@ -10,6 +10,7 @@ A template is a world for your set to play in. Pick one with `-t`, list them wit
 | **Drawn on** | CPU (pygame-ce) | GPU (WebGPU on Metal) | GPU (WebGPU on Metal) |
 | **Listens for** | beats, 5 bands, onsets, loudness, sections | all of that, plus key, LUFS and 303 kinds of sound | all of that, plus drops, breakdowns and sound-cued gags |
 | **2 h set on an M1 Pro** | about 40 min, 12 GB | about 60 min, 19 GB | about 65 min, 10 GB |
+| **Watch** | no video yet | [the whole Knisper set](https://youtu.be/DOuO45YCyCs) | [30 s reel](https://youtu.be/JZnURn199K0) · [2 min reel](https://youtu.be/d__gZC1iRnI) |
 | **Keywords** | `night` `acid` `c64` `amiga` `minimal` `packed` `calm` `nolasers` | `aurora` `anime` `blocky` `packed` `intimate` `foggy` `clear` `frantic` `chill` `partytime` `retro` `hd` `smooth` `nohud` `dawn` | `twostrip` `mono` `clean` `pristine` `steady` `nohud` `short` `long` `frantic` `chill` `sky` `spooky` `classic` `party` `flawless` `hardcore` `nosidekicks` |
 
 ## What every template shares

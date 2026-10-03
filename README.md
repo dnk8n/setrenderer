@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="#watch-it">Watch</a> ·
   <a href="#try-it-in-five-minutes">Quick start</a> ·
   <a href="docs/templates/README.md">Gallery</a> ·
   <a href="docs/cookbook.md">Cookbook</a> ·
@@ -43,6 +44,23 @@
 </table>
 
 Everything on screen answers to the music: the beat tracker finds every kick, five frequency bands drive different things on screen, the set's sections change the scenery, and the drops land. The same set always renders the same video, and two different sets never look alike.
+
+## Watch it
+
+<table>
+  <tr>
+    <td width="33%"><a href="https://youtu.be/JZnURn199K0"><img src="https://img.youtube.com/vi/JZnURn199K0/maxresdefault.jpg" alt="Play the 30-second rubberhose highlight reel on YouTube: the Jelly Queen towers over the two heroes in a farm orchard"></a></td>
+    <td width="33%"><a href="https://youtu.be/d__gZC1iRnI"><img src="https://img.youtube.com/vi/d__gZC1iRnI/maxresdefault.jpg" alt="Play the two-minute rubberhose reel on YouTube: DJ Hamhock, a purple pig DJ with dragon wings, under festival lasers"></a></td>
+    <td width="33%"><a href="https://youtu.be/DOuO45YCyCs"><img src="https://img.youtube.com/vi/DOuO45YCyCs/maxresdefault.jpg" alt="Play the full-length cropcircle video on YouTube: a pixel-art crowd dancing under lasers and bunting at night"></a></td>
+  </tr>
+  <tr>
+    <td>▶ <b><a href="https://youtu.be/JZnURn199K0">30 seconds of rubberhose</a></b><br>A trailer for the boss rush, cut by <code>setrender reel</code> with every cut on a beat.</td>
+    <td>▶ <b><a href="https://youtu.be/d__gZC1iRnI">Two minutes of rubberhose</a></b><br>One clip per boss on its best moment, from <code>setrender reel --per-act --length 120</code>.</td>
+    <td>▶ <b><a href="https://youtu.be/DOuO45YCyCs">The whole set in cropcircle</a></b><br>Pepper &amp; Pumpernickl at Knisper Festival 2026, from sunset to sunrise.</td>
+  </tr>
+</table>
+
+All three were rendered by setrender from the same DJ set. Watch with the sound on: every kick, drop and breakdown is doing something.
 
 ## Try it in five minutes
 

@@ -135,11 +135,11 @@ A 30-second trailer cut on the beat, plus a small copy for phones:
 .venv/bin/setrender reel /path/to/your\ set.wav -t rubberhose --phone
 ```
 
-If the full render exists it cuts straight from it, which takes a minute. Otherwise it renders just the clips it needs. For rubberhose, `--per-act` gives one clip per boss, and `--length 120` makes a two-minute version.
+If the full render exists it cuts straight from it, which takes a minute. Otherwise it renders just the clips it needs. For rubberhose, `--per-act` gives one clip per boss, and `--length 120` makes a two-minute version. Here is [a 30-second reel](https://youtu.be/JZnURn199K0) and [a two-minute one](https://youtu.be/d__gZC1iRnI) made from the Knisper set.
 
 ## 10. Upload to YouTube
 
-Upload the `.mov` from `out/` as it is. It is already in the format YouTube recommends: 1080p at 60 fps, H.264, BT.709 colour, with your original audio untouched (lossless PCM). YouTube accepts files of this size, but uploads of 10 to 20 GB take a while on most connections.
+Upload the `.mov` from `out/` as it is. It is already in the format YouTube recommends: 1080p at 60 fps, H.264, BT.709 colour, with your original audio untouched (lossless PCM). YouTube accepts files of this size, but uploads of 10 to 20 GB take a while on most connections. Here is how one looks once it's up: [the whole Knisper set in cropcircle](https://youtu.be/DOuO45YCyCs).
 
 If you need a smaller file, render with `--audio-codec aac` for an MP4 with high-quality AAC audio. For a sharper picture on YouTube, `--resolution 2160p` uploads in 4K, which YouTube streams at a higher bitrate (the file is bigger and the render a little slower).
 

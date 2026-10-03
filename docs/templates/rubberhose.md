@@ -9,6 +9,17 @@ setrender render set.wav -t rubberhose
 setrender reel   set.wav -t rubberhose --per-act --length 30 --phone
 ```
 
+<table>
+  <tr>
+    <td width="50%"><a href="https://youtu.be/JZnURn199K0"><img src="https://img.youtube.com/vi/JZnURn199K0/maxresdefault.jpg" alt="Play the 30-second rubberhose highlight reel on YouTube"></a></td>
+    <td width="50%"><a href="https://youtu.be/d__gZC1iRnI"><img src="https://img.youtube.com/vi/d__gZC1iRnI/maxresdefault.jpg" alt="Play the two-minute rubberhose reel on YouTube"></a></td>
+  </tr>
+  <tr>
+    <td>▶ <b><a href="https://youtu.be/JZnURn199K0">Watch 30 seconds</a></b> of the Knisper set as a boss rush</td>
+    <td>▶ <b><a href="https://youtu.be/d__gZC1iRnI">Watch two minutes</a></b>: one clip per boss, <code>--per-act --length 120</code></td>
+  </tr>
+</table>
+
 <p align="center"><img src="../media/rubberhose-moments.jpg" alt="Six moments: the title card, a Super Art hitting the kettle on a drop, a ghost floating up while the sun laughs, a TAKE 2 clapperboard, a KNOCKOUT card over the storm cloud, and the overworld map intermission" width="100%"></p>
 
 ## The cast
@@ -84,6 +95,8 @@ Boss names: `gramophone`, `sun`, `cloud`, `kettle`, `organ`, `octopus`, `jukebox
 ## Highlight reels
 
 `setrender reel <audio> -t rubberhose` cuts about 30 s of whole-beat clips (10 to 15 clips of 2 to 3 s), opening on the title card and closing on THE END, with the clips in between spread evenly through the set at its most salient moments: supers, knockouts, gags, drops and section starts. `--per-act` cuts one clip per boss instead, each on that fight's best moment (a Super Art, the knockout, a save, a lost take's TAKE card or a transformation, varied from boss to boss), plus a map walk and an intermission, in set order: `--length 30` gives 15 clips of about 2 s and `--length 120` about 8 s each, every cut on a beat. `--phone` adds a 720p copy for social media.
+
+Examples from the Knisper set: [a 30-second reel](https://youtu.be/JZnURn199K0) and [a two-minute reel, one clip per boss](https://youtu.be/d__gZC1iRnI).
 
 ## Under the hood
 

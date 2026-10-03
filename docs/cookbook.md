@@ -145,6 +145,8 @@ setrender reel set.wav --length 60 --clips 20              # longer, with exactl
 
 Clips are 2 to 3 seconds and there are 10 to 15 of them unless you say otherwise, so for a regular reel longer than about 45 seconds, raise `--clips` too. `--per-act` reels stretch their clips to fill `--length`.
 
+What they look like: [a 30-second rubberhose reel](https://youtu.be/JZnURn199K0) and [a two-minute one with `--per-act --length 120`](https://youtu.be/d__gZC1iRnI).
+
 Every cut lands on a beat, the reel opens on the title and ends on the closing, and the clips in between are spread evenly through the set, each on the most salient moment of its stretch: drops, energy jumps, section starts, and whatever the template flags (rubberhose flags supers, knockouts, saves, lost takes and gags). The audio of each clip is the set's own audio at that point.
 
 If the full render exists at `out/<name>.<template>.mov`, the reel is cut from it in about a minute. Otherwise it renders only the clips it needs. Point it at a render elsewhere with `--source path/to/render.mov`. Reels are written as `out/<name>.<template>_highlights.mp4` with a `.json` listing every clip and why it was chosen.

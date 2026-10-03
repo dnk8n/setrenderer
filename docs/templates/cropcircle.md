@@ -9,6 +9,9 @@ setrender render set.wav -t cropcircle
 setrender render set.wav -t cropcircle -k aurora,packed
 ```
 
+<p align="center"><a href="https://youtu.be/DOuO45YCyCs"><img src="https://img.youtube.com/vi/DOuO45YCyCs/maxresdefault.jpg" alt="Play the full-length cropcircle video of the Knisper set on YouTube: a pixel-art crowd dancing under lasers and bunting" width="80%"></a><br>
+▶ <b><a href="https://youtu.be/DOuO45YCyCs">Watch the whole Knisper set in cropcircle</a></b>, sunset to sunrise.</p>
+
 It is drawn in 3D on the GPU in an HD-2D style: low-poly farm, 30,000 instanced corn plants and pixel-art people as billboards, at 640x360, upscaled three times to 1080p.
 
 <p align="center"><img src="../media/cropcircle-moments.jpg" alt="Four cropcircle moments: dancers at the car stage at sunset with a cat on the roof, the DJ booth with a wall of CRT screens, a space-invader crop circle seen from the drone, and a packed dancefloor under red lasers" width="100%"></p>
