@@ -403,9 +403,13 @@ def _r15(reel_path: Path, set_audio: Path):
         b = pcm(["-ss", f"{c['t0'] + 0.35:.4f}", "-t", f"{c['dur'] - 0.7:.4f}", "-i", str(set_audio)])
         k = min(len(a), len(b)) - 1600
         # best match within ±100 ms (the AAC encoder's priming delay shifts the decoded audio slightly)
-        best = max((float(np.corrcoef(a[800 + d: 800 + d + k], b[800: 800 + k])[0, 1]) for d in range(-800, 801, 8)),
-                   default=0.0) if k > 100 else 0.0
-        corr.append(best)
+        def r_at(d):
+            return float(np.corrcoef(a[800 + d: 800 + d + k], b[800: 800 + k])[0, 1])
+        if k > 100:
+            coarse = max(range(-800, 801, 8), key=r_at)
+            corr.append(max(r_at(d) for d in range(max(-800, coarse - 8), min(800, coarse + 8) + 1)))
+        else:
+            corr.append(0.0)
         off += c["dur"]
     rec("R15", 10 <= n <= 15 and all(2.0 <= x <= 3.0 for x in durs) and abs(total - 30) <= 2 and all(on_beat)
         and first_title and last_end and even and min(corr) >= 0.9, clips=n, clip_s=round(float(np.mean(durs)), 2),

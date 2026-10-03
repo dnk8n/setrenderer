@@ -84,7 +84,7 @@ def choose(an: Analysis, st, n: int | None = None, length: float = 30.0, hints=N
     dur = an.duration
     beats = an.beats if len(an.beats) > 8 else np.arange(0.0, dur, period)
     n, nb = fit(length, period, n)
-    clip_len = nb * period
+    clip_len = round(nb * period * 60) / 60      # whole video frames, so picture and sound stay the same length
     db, score, why = salience(an, st, hints)
 
     def snap_beat(t):
