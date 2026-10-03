@@ -277,7 +277,8 @@ def _plan_checks(set_audio):
                 for h in (0, 1):
                     lift, j, _ = F.jump_at(h, s.ts + s.life)
                     h_air |= (j is not None and j.parry and lift > 0)
-                parried += h_air and s.end == "parry"
+                # parried in mid-air, or a mistimed parry: the hero jumped too early and it hit them
+                parried += h_air and (s.end == "parry" or (s.end == "hit" and s.fail))
         for ts, h in F.bullets:
             n_bul += 1
             k = int(np.searchsorted(m.beats, ts + 0.02) - 1)
@@ -291,7 +292,7 @@ def _plan_checks(set_audio):
     rec("R9", on_beat == n_shots and in_kick == n_shots and bul_ok == n_bul and sup_ok == n_sup and parried == pink
         and hit_beat == n_hit and rev_beat == n_rev,
         boss_shots=n_shots, on_beat=on_beat, in_kick_bars=in_kick, hero_shots=n_bul, hero_shots_on_grid_when_hats=bul_ok,
-        supers=n_sup, supers_on_drops=sup_ok, pink=pink, parried=parried, hits=n_hit, hits_on_beat=hit_beat,
+        supers=n_sup, supers_on_drops=sup_ok, pink=pink, parried_or_mistimed=parried, hits=n_hit, hits_on_beat=hit_beat,
         revives=n_rev, revives_parried_on_beat=rev_beat)
 
     # R10: every string the lettering draws, sampled every second of the set
@@ -348,11 +349,16 @@ def _combat_checks(sc):
     """R16 (health, deaths, revives, takes), R17 (super cards, EX, Super Arts), R18 (easter eggs)."""
     m, P = sc.m, sc.P
     bad16, bad17 = [], []
-    n_takes = n_lost = acts_retaken = n_rev = n_solo = n_hits = anomalies = 0
+    n_takes = n_lost = acts_retaken = n_rev = n_solo = n_hits = anomalies = n_hearts = n_pf = 0
+    n_missed_hearts = n_minion_hits = n_grazes = 0
     for x in P.acts:
         F = sc._fight(x)
         anomalies += F.anomalies
         acts_retaken += len(x.takes) > 1
+        n_pf += sum(1 for s in F.shots if s.fail)
+        n_minion_hits += sum(1 for s in F.shots if s.kind in combat.MINIONS and s.role == "hit")
+        n_missed_hearts += sum(1 for pk in F.pickups if pk.outcome != "got")
+        n_grazes += len(F.grazes)
         for tk in x.takes:
             n_takes += 1
             n_lost += not tk.won
@@ -362,12 +368,19 @@ def _combat_checks(sc):
                 hp = combat.HP
                 prev = -1e9
                 evs = sorted([(t, "hit") for t in hits]
-                             + [(r[0] + 0.25, "rev") for r in F.revives if r[2] == h and tk.go <= r[0] < tk.end])
+                             + [(r[0] + 0.25, "rev") for r in F.revives if r[2] == h and tk.go <= r[0] < tk.end]
+                             + [(pk.t, "heart") for pk in F.pickups if pk.h == h and pk.outcome == "got" and tk.go <= pk.t < tk.end])
                 for t, kind in evs:
                     if kind == "rev":
                         if hp != 0:
                             bad16.append(("revived while up", x.boss, round(t, 2)))
                         hp = 1
+                        continue
+                    if kind == "heart":
+                        if hp <= 0 or not F.is_alive(h, t):
+                            bad16.append(("heart while down", x.boss, h, round(t, 2)))
+                        hp = min(combat.HP, hp + 1)
+                        n_hearts += 1
                         continue
                     if not F.is_alive(h, t - 1e-3):
                         bad16.append(("hit while down", x.boss, h, round(t, 2)))
@@ -407,9 +420,11 @@ def _combat_checks(sc):
                     b, a = F.meter(h, s0 - 1e-6), F.meter(h, s0 + 1e-6)
                     if b < 5 - 1e-6 or a > 1e-9:
                         bad17.append(("super", x.boss, h, round(s0, 2), round(b, 3), round(a, 3)))
-    rec("R16", not bad16 and anomalies == 0 and acts_retaken * 2 >= len(P.acts) and n_rev >= 5 and n_solo >= 1,
+    rec("R16", not bad16 and anomalies == 0 and acts_retaken * 2 >= len(P.acts) and n_rev >= 5 and n_solo >= 1
+        and n_pf > 0 and n_minion_hits > 0 and n_hearts > 0 and n_missed_hearts > 0 and n_grazes >= 10 * len(P.acts),
         takes=n_takes, lost_takes=n_lost, acts_with_retakes=acts_retaken, hits=n_hits, revives=n_rev,
-        solo_finishes=n_solo, shots_through_heroes=anomalies, problems=bad16[:6])
+        solo_finishes=n_solo, shots_through_heroes=anomalies, failed_parries=n_pf, sidekick_hits=n_minion_hits,
+        hearts_got=n_hearts, hearts_missed=n_missed_hearts, near_misses=n_grazes, problems=bad16[:6])
     n_ex = sum(len(sc._fight(x).exs) for x in P.acts)
     n_sa = sum(len(sc._fight(x).super_by) for x in P.acts)
     rec("R17", not bad17 and n_ex > 0 and n_sa > 0, ex_shots=n_ex, super_arts=n_sa, problems=bad17[:6])

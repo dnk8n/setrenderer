@@ -10,6 +10,12 @@ Cuphead's rules, played out on the cartoon's clock:
 * five super cards per hero fill from the damage they deal and from parries; one card buys an EX shot,
   a full hand a Super Art on a drop, which spends all five
 * the boss's damage shows on it (dents, bandages, black eyes, missing leaves...) and resets on a restart
+* the boss has sidekicks: runners that scuttle along the floor (hop them), flyers that swoop in at head
+  height (duck them) and poppers that burst out of the ground (dash away); the peashooters pop the ones
+  that don't get through
+* a pink parry can be mistimed: the hero jumps too early and the pink shot hits them instead
+* hearts float through now and then: grabbed, missed by a whisker, or snatched away just in time
+* near misses are planned too: shots that skim heads and land at toes, which the heroes react to
 
 Every boss shot is fired on a beat and travels a whole number of beats, so hits, dodges, parries and
 revives land on the beat. Shots are aimed by role: a hit is aimed at a hero, a dodge at a hero's shins
@@ -37,6 +43,9 @@ G = 1400.0             # arc gravity
 GROUND = 905.0
 SHOT_R = 26.0
 HALF_W, TALL = 46.0, 255.0          # ground hero hitbox (feet at the bottom)
+MINIONS = ("runner", "flyer", "popper")
+MINION_SIZE = 1.6
+GRAZE = 60.0                        # px: a shot that passes this close to a hero is a near miss
 PLANE_RX, PLANE_RY = 150.0, 88.0    # plane hitbox
 
 
@@ -56,6 +65,20 @@ class Shot:            # a boss projectile
     who: int = -1      # the hero it is meant for
     role: str = "miss"  # hit | dodge | parry | miss | side | ring
     arrive: float = 0.0
+    p0: float = 0.0    # flyer: parabola k
+    p1: float = 0.0    # flyer, popper: time of the strike (s after ts)
+    fail: bool = False  # a pink shot that beat a mistimed parry
+
+
+@dataclass
+class Pickup:          # a floating heart (an extra hit point)
+    t: float           # when a hero jumps for it
+    h: int
+    outcome: str       # got | miss | stolen
+    x: float
+    y: float
+    side: float        # it drifts in from this side (-1 left, +1 right)
+    t_in: float        # when it appears
 
 
 @dataclass
@@ -118,6 +141,11 @@ class Fight:
         self.supers: list[float] = []            # super start times (both heroes)
         self.super_by: list[tuple[float, int]] = []
         self.super_dur = 2 * self.bar
+        self.ducks: list[list[tuple[float, float]]] = [[], []]
+        self.pickups: list[Pickup] = []
+        self.moves: list[tuple] = []              # (hero, move, shot it gets out of the way of)
+        self.grazes: list[tuple] = []             # (t, hero, distance px, shot)
+        self.minion_kinds = [k for k in boss_info.get("minions", ()) if not (a.sky and k != "flyer")]
         self.inv: list[list[tuple[float, float]]] = [[], []]
         self.busy: list[list[tuple[float, float]]] = [[], []]
         self._blk: dict = {}
@@ -183,6 +211,18 @@ class Fight:
             out[sel] = np.maximum(out[sel], 4 * j.height * u[sel] * (1 - u[sel]))
         return out
 
+    def crouch(self, h: int, tt):
+        """0..1: ducking under a flyer (on a plane stage, the plane dips instead)."""
+        tt = np.atleast_1d(np.asarray(tt, np.float64))
+        out = np.zeros_like(tt)
+        for t0, d in self.ducks[h]:
+            if t0 > tt[-1] or t0 + d < tt[0]:
+                continue
+            u = (tt - t0) / d
+            sel = (u >= 0) & (u < 1)
+            out[sel] = np.maximum(out[sel], np.minimum(1.0, 6 * u[sel] * (1 - u[sel])))
+        return out
+
     def pos(self, h: int, tt):
         """(x, y feet or plane centre, lift) with knockback and runs applied (vectorised)."""
         tt = np.atleast_1d(np.asarray(tt, np.float64))
@@ -234,7 +274,10 @@ class Fight:
         return any(a < t1 and t0 < b for a, b in self.busy[h])
 
     def _jumping(self, h: int, t0: float, t1: float) -> bool:
-        return any(j.t0 < t1 and t0 < j.t0 + j.dur for j in self.jumps[h])
+        """In the middle of a move: a jump, a duck or a dash."""
+        return (any(j.t0 < t1 and t0 < j.t0 + j.dur for j in self.jumps[h])
+                or any(a < t1 and t0 < a + d for a, d in self.ducks[h])
+                or any(r.t0 < t1 and t0 < r.t3 for r in self.runs[h]))
 
     def _add_jump(self, h: int, j: Jump, skip=None) -> bool:
         """Add a jump if it doesn't carry the hero into a shot already in the air."""
@@ -256,6 +299,12 @@ class Fight:
     # ================================================================ shots
     def shot_xy(self, s: Shot, tt):
         tt = np.asarray(tt, np.float64)
+        if s.kind == "flyer":         # swoops down to its mark and climbs away again
+            return s.x0 + s.vx * tt, s.y0 + s.p0 * (tt - s.p1) ** 2
+        if s.kind == "popper":        # waits under the floor, bursts up, ducks back down
+            T = s.p1
+            up = _smooth((tt - T + 0.05) / 0.2) - _smooth((tt - T - 0.45) / 0.25)
+            return s.x0 + 0 * tt, self.ground + 60 - 300 * up
         if s.kind == "arc":
             return s.x0 + s.vx * tt, s.y0 + s.vy * tt + 0.5 * G * tt * tt
         if s.kind == "wave":
@@ -264,9 +313,13 @@ class Fight:
 
     def _life(self, s: Shot) -> float:
         """Until it leaves the screen or reaches the floor."""
+        if s.kind == "popper":
+            return s.p1 + 0.75
         tt = np.arange(0.0, 6.0, 1 / 60)
         x, y = self.shot_xy(s, tt)
         out = (x < -160) | (x > 2100) | (y > 1200) | ((y < -400) & (np.arange(len(tt)) > 30))
+        if s.kind == "flyer":
+            out = (x < -200) | ((y < -200) & (tt > s.p1))
         if not self.sky and s.kind in ("aimed", "arc", "rain", "wave"):
             floor = y > self.ground - 14
             if floor.any():
@@ -287,12 +340,13 @@ class Fight:
         x, y, lf = self.pos(h, ta)
         al = self.alive(h, ta)
         r = SHOT_R * s.size
+        cr = self.crouch(h, ta)
         if self.sky:
-            cy = y - lf + 5
+            cy = y - lf + 5 + 160 * cr
             inside = ((sx - (x - 10)) / (PLANE_RX + r)) ** 2 + ((sy - cy) / (PLANE_RY + r)) ** 2 < 1
         else:
             feet = y - lf
-            inside = (np.abs(sx - x) < HALF_W + r) & (sy > feet - TALL - r) & (sy < feet + 8)
+            inside = (np.abs(sx - x) < HALF_W + r) & (sy > feet - TALL * (1 - 0.48 * cr) - r) & (sy < feet + 8)
         inside &= al
         if not inside.any():
             return None
@@ -307,7 +361,15 @@ class Fight:
     def _aim(self, kind: str, ts: float, n: int, tx: float, ty: float, seed: float, pink=False) -> Shot:
         T = self._arrival(ts, n) - ts
         ex, ey = self.ex, self.ey
-        if kind == "arc":
+        if kind == "runner":
+            x0 = ex + 60
+            s = Shot(ts, "runner", x0, self.ground - 50, (tx - x0) / T, 0.0, False, MINION_SIZE, seed, T)
+        elif kind == "flyer":
+            x0, y0 = tx + 1100, -170.0
+            s = Shot(ts, "flyer", x0, ty, (tx - x0) / T, 0.0, False, MINION_SIZE, seed, T, p0=(y0 - ty) / (T * T), p1=T)
+        elif kind == "popper":
+            s = Shot(ts, "popper", tx, self.ground, 0.0, 0.0, False, MINION_SIZE, seed, T + 0.75, p1=T)
+        elif kind == "arc":
             vx = (tx - ex) / T
             vy = (ty - ey - 0.5 * G * T * T) / T
             s = Shot(ts, "arc", ex, ey, vx, vy, pink, 1.1, seed, T)
@@ -325,12 +387,17 @@ class Fight:
         """A shot at hero h that touches them exactly at ta: aimed at the centre first, then re-aimed at
         the point where that path first touches the hero, so it arrives (and pops) on the beat."""
         s = self._aim(kind, ts, n, tx, ty, seed, pink)
-        if s.kind != "rain" and not (-250 < s.y0 < 1300):
+        if s.kind not in ("rain", "flyer", "popper") and not (-250 < s.y0 < 1300):
             return None
         s.life = ta - ts + 0.3
         c = self._contact(s, h)
-        if c is None or c > ta + 0.05:
+        if c is None or c > ta + 0.06:
             return None
+        if s.kind == "popper":
+            if c < ta - 0.06:
+                return None
+            s.life = ta - ts + 0.75
+            return s
         if c < ta - 0.03:
             px, py = self.shot_xy(s, c - ts)
             s = self._aim(kind, ts, n, float(px), float(py), seed, pink)
@@ -345,7 +412,14 @@ class Fight:
         """Beats of travel for a shot (fast enough to threaten, slow enough to read)."""
         p = self.m.period
         d = math.hypot(tx - self.ex, ty - self.ey)
-        if kind == "arc":
+        if kind == "runner":
+            n0 = int(np.clip(math.ceil(abs(tx - self.ex - 60) / (850 * p)), 2, 6))
+            ns = [n0, n0 + 1]
+        elif kind == "flyer":
+            ns = [3, 4]
+        elif kind == "popper":
+            ns = [3, 4]          # two beats of warning: the floor cracks and shakes
+        elif kind == "arc":
             ns = [2, 3]
         elif kind == "wave":
             ns = [3, 4, 2]
@@ -384,6 +458,13 @@ class Fight:
                 pink = (n_pink % 4 == 3) and kind not in ("ring", "rain")
                 n_pink += 1
                 out.append({"ts": ts, "kind": kind, "ph": ph, "pink": pink, "seed": r, "bk": bk, "j": j, "used": False})
+            # the boss's sidekicks join in, more of them as the fight goes on
+            if self.minion_kinds and h01(self.seed, "mn", bk) < [0.3, 0.45, 0.6][ph] * self.rate:
+                ts = float(m.beat_time(m.beat_pos(tb) + (1 if h01(self.seed, "mb", bk) < 0.5 else 3)))
+                kind = self.minion_kinds[int(h01(self.seed, "mk", bk) * len(self.minion_kinds))]
+                out.append({"ts": ts, "kind": kind, "ph": ph, "pink": False, "seed": h01(self.seed, "ms", bk), "bk": bk,
+                            "j": 9, "used": False})
+        out.sort(key=lambda sl: sl["ts"])
         return out
 
     def _script(self, tk: story.Take):
@@ -419,26 +500,29 @@ class Fight:
                         (at(0.42, 4), B), (at(0.72, 5), B), (fin, B)]
                 rev = {A: [False], B: [False]}
         else:
-            if r < 0.14:
-                pat = "clean"
-                hits = [(at(0.3 + 0.5 * h01(key, "c"), 1), A)]
-                rev = {A: [], B: []}
-            elif r < 0.32:
+            if r < 0.12:
+                pat = "close"                 # never quite down, but always hurting
+                hits = [(at(0.2, 1), A), (at(0.45, 2), A), (at(0.75, 3), A), (at(0.3, 4), B), (at(0.6, 5), B),
+                        (at(0.88, 6), B)]
+                rev = {A: [False], B: []}
+            elif r < 0.3:
                 pat = "scrape"                # both end on their last heart
-                hits = [(at(0.25, 1), A), (at(0.7, 2), A), (at(0.4, 3), B), (at(0.85, 4), B)]
+                hits = [(at(0.15, 1), A), (at(0.4, 2), A), (at(0.7, 3), A), (at(0.25, 4), B), (at(0.55, 5), B),
+                        (at(0.85, 6), B)]
                 rev = {A: [], B: []}
-            elif r < 0.64:
+            elif r < 0.62:
                 pat = "revive"
-                hits = [(at(0.18, 1), A), (at(0.34, 2), A), (at(0.5, 3), A), (at(0.75, 4), B)]
+                hits = [(at(0.14, 1), A), (at(0.28, 2), A), (at(0.44, 3), A), (at(0.66, 4), A), (at(0.35, 5), B),
+                        (at(0.75, 6), B)]
                 rev = {A: [True], B: []}
             elif r < 0.82:
                 pat = "double_revive"         # each saves the other once on the way to the knockout
-                hits = [(at(0.12, 1), A), (at(0.24, 2), A), (at(0.36, 3), A),
-                        (at(0.3, 4), B), (at(0.5, 5), B), (at(0.62, 6), B)]
+                hits = [(at(0.1, 1), A), (at(0.2, 2), A), (at(0.32, 3), A), (at(0.8, 4), A),
+                        (at(0.26, 5), B), (at(0.46, 6), B), (at(0.6, 7), B)]
                 rev = {A: [True], B: [True]}
             else:
                 pat = "solo"                  # A's ghost floats off; B finishes the job alone
-                hits = [(at(0.3, 1), A), (at(0.52, 2), A), (at(0.7, 3), A), (at(0.45, 4), B)]
+                hits = [(at(0.2, 1), A), (at(0.42, 2), A), (at(0.62, 3), A), (at(0.35, 4), B), (at(0.8, 5), B)]
                 rev = {A: [False], B: []}
         hits = [(min(max(t, tk.go + 6.0), tk.end - 0.5 * self.bar), h) for t, h in hits]
         return pat, sorted(hits), rev
@@ -450,22 +534,31 @@ class Fight:
         self.patterns.append((tk.n, tk.won, pat))
         hp = [HP, HP]
         n_dead = [0, 0]
+        last_ev = [tk.go, tk.go]       # hits are placed in each hero's own time order
 
-        def free(h, t):
-            return (self.is_alive(h, t) and not self._inv(h, t) and not self._busy(h, t - 0.5, t + 0.5)
+        def free(h, t, relax=False):
+            inv_ok = (not self._inv(h, t)) if not relax else all(not (0 <= t - th < 1.05) for th in self.hits[h])
+            return (self.is_alive(h, t) and inv_ok and not self._busy(h, t - 0.5, t + 0.5)
                     and not self._jumping(h, t - 0.45, t + 0.45)
                     and not any(abs(t - dn.t) < 0.7 for dn in self.downs if dn.h != h))
 
-        def place_hit(h, t_star, window, lo=None, hi=None, final=False):
+        def place_hit(h, t_star, window, lo=None, hi=None, final=False, relax=False):
             lo = tk.go + 2.0 if lo is None else lo
+            lo = max(lo, last_ev[h] + (1.05 if relax else 0.3))
             hi = tk.end - 0.4 * bar if hi is None else hi
             cands = []
+            want_pf = h01(self.seed, "pf", round(t_star, 2)) < 0.45
             for sl in slots:
-                if sl["used"] or sl["pink"] and not final:
+                if sl["used"] or sl["pink"] and not (final or want_pf):
                     continue
                 if sl["ts"] > t_star + window or sl["ts"] < t_star - window - 3.0:
                     continue
-                kinds = [sl["kind"]] + [k for k in ("aimed", "arc", "wave") if k != sl["kind"]]
+                if sl["kind"] in MINIONS:
+                    kinds = [sl["kind"]]
+                elif sl["pink"]:
+                    kinds = [sl["kind"]] if sl["kind"] in ("aimed", "wave") else ["aimed"]
+                else:
+                    kinds = [sl["kind"]] + [k for k in ("aimed", "arc", "wave") if k != sl["kind"]]
                 for kind in kinds:
                     if kind == "ring":
                         continue
@@ -475,22 +568,35 @@ class Fight:
                         ta = self._arrival(sl["ts"], n)
                         if not (lo <= ta <= hi) or abs(ta - t_star) > window:
                             continue
-                        cands.append((abs(ta - t_star) + 0.05 * n + (0.3 if kind != sl["kind"] else 0), sl, kind, n, ta))
+                        bonus = -2.0 if (sl["pink"] and want_pf) or sl["kind"] in MINIONS else 0.0
+                        cands.append((abs(ta - t_star) + 0.05 * n + (0.3 if kind != sl["kind"] else 0) + bonus, sl, kind,
+                                      n, ta))
             cands.sort(key=lambda c: c[0])
-            for _, sl, kind, n, ta in cands[:40]:
-                if not free(h, ta) or (self._inv(h, ta)):
+            for _, sl, kind, n, ta in cands[:300 if relax else 40]:
+                if not free(h, ta, relax):
                     continue
-                x, y, _ = self.pos(h, [ta])
+                pf = None
+                if sl["pink"]:            # jumps for the parry a beat too soon, and comes down into it
+                    pf = Jump(ta - 0.48, 0.6, 150.0, True, "parryfail")
+                    self.jumps[h].append(pf)
+                    self.jumps[h].sort(key=lambda q: q.t0)
+                x, y, lf = self.pos(h, [ta])
                 tx = float(x[0])
-                ty = float(y[0]) - (130 if not self.sky else -5)
+                ty = float(y[0]) - float(lf[0]) - (130 if not self.sky else -5)
                 if kind == "rain":
                     ty = float(y[0]) - (230 if not self.sky else 0)
-                s = self._aim_edge(kind, sl["ts"], n, tx, ty, sl["seed"], h, ta)
-                if s is None:
+                elif kind == "runner":
+                    ty = self.ground - 50
+                s = self._aim_edge(kind, sl["ts"], n, tx, ty, sl["seed"], h, ta, pink=sl["pink"])
+                ok = s is not None and self._clear(s, ta, ignore=h)
+                if pf is not None:
+                    self.jumps[h].remove(pf)
+                    if ok:
+                        s.fail = True
+                        ok = self._add_jump(h, pf, skip=s)
+                if not ok:
                     continue
                 s.who, s.role, s.end = h, "hit", "hit"
-                if not self._clear(s, ta, ignore=h):
-                    continue
                 sl["used"] = True
                 self.shots.append(s)
                 return ta
@@ -530,6 +636,8 @@ class Fight:
                         self.jumps[by].remove(jmp)
                     continue
                 dn.revive = t_r
+                last_ev[dn.h] = t_r + 0.25
+                last_ev[by] = max(last_ev[by], t_r)
                 self.busy[by].append((t_r - 1.6, t_r + 0.5))
                 self.inv[dn.h].append((t_r, t_r + 0.25 + INV_REVIVE))
                 # getting back up: back at the body, then home to the lane
@@ -539,8 +647,46 @@ class Fight:
                 return True
             return False
 
-        # ---- hits, deaths and revives, in time order
-        for t_star, h in hits:
+        D = tk.end - tk.go
+        nh = max(1, int(round(D / 80.0)))
+        hearts = [tk.go + D * ((k + 0.5) / nh + (h01(self.seed, tk.n, "hf", k) - 0.5) * 0.6 / nh) for k in range(nh)]
+        events = sorted([(t, h) for t, h in hits] + [(t, -1) for t in hearts])
+
+        def heart(t_star):
+            """A heart floats through: whoever is hurt jumps for it. Grabbed, missed by a whisker, or snatched
+            away by a sidekick at the last moment."""
+            for dt in (0.0, 1.5, -1.5, 3.0, 4.5):
+                t = float(self.m.beat_time(round(self.m.beat_pos(t_star + dt))))
+                if not (tk.go + 4.0 < t < tk.end - 2 * bar) or any(i.t0 - 2 < t < i.t1 + 1 for i in self.inters):
+                    continue
+                order = sorted((0, 1), key=lambda q: (hp[q], h01(self.seed, "hh", t, q)))
+                for h in order:
+                    if t < last_ev[h] + 0.5 or not self._hero_free(h, t, 1.3, 0.6):
+                        continue
+                    r = h01(self.seed, "heart", t)
+                    outcome = "got" if hp[h] < HP and r < 0.58 else ("miss" if r < 0.84 or hp[h] >= HP else "stolen")
+                    if outcome == "got" and not tk.won and t > tk.go + 0.72 * D:
+                        outcome = "miss" if r < 0.3 else "stolen"     # so close, just before the wipe
+                    high = h01(self.seed, "hi", t) < 0.4
+                    jh = 235.0 if high else 160.0
+                    jmp = Jump(t - 0.3, 0.6, jh, False, "grab")
+                    if not self._add_jump(h, jmp):
+                        continue
+                    x, y, _ = self.pos(h, [t])
+                    hy = float(y[0]) - jh - (230 if not self.sky else 120) - (40 if outcome == "miss" else 0)
+                    side = 1.0 if h01(self.seed, "hs", t) < 0.5 else -1.0
+                    self.pickups.append(Pickup(t, h, outcome, float(x[0]) + 15, hy, side, t - 2.6))
+                    self.busy[h].append((t - 1.0, t + 0.5))
+                    last_ev[h] = max(last_ev[h], t)
+                    if outcome == "got":
+                        hp[h] = min(HP, hp[h] + 1)
+                    return
+
+        # ---- hits, hearts, deaths and revives, in time order
+        for t_star, h in events:
+            if h < 0:
+                heart(t_star)
+                continue
             other = 1 - h
             if not self.is_alive(h, t_star):
                 continue
@@ -560,6 +706,7 @@ class Fight:
                 continue
             self.hits[h].append(ta)
             self.hits[h].sort()
+            last_ev[h] = ta
             hp[h] -= 1
             self.inv[h].append((ta, ta + INV_HIT))
             if hp[h] <= 0:
@@ -570,23 +717,36 @@ class Fight:
                     hp[h] = 1
         # a lost take must end with both heroes down: finish off whoever is still standing
         if not tk.won:
-            for _ in range(8):
-                standing = [h for h in (0, 1) if self.is_alive(h, tk.end - 0.6 * bar)]
+            for _ in range(14):
+                standing = [h for h in (0, 1) if self.is_alive(h, tk.end - 0.02)]
                 if not standing:
                     break
                 h = standing[-1]
-                t_try = tk.end - 1.0 * bar
+                # leave room for every heart they still have: hits at least INV_HIT apart, the last near the end
+                t_try = max(tk.end - 0.9 * bar - (max(hp[h], 1) - 1) * (INV_HIT + 0.4), last_ev[h] + INV_HIT)
                 ta = place_hit(h, t_try, 8 * bar, lo=tk.go + 2.0, hi=tk.end - 0.4 * bar, final=True)
+                if ta is None:      # squeezed for time: a last blow right before the TAKE card
+                    ta = place_hit(h, tk.end - 0.3, 8 * bar, lo=tk.go + 2.0, hi=tk.end - 0.12, final=True, relax=True)
+                if ta is None:      # the boss fires one more, on any beat of the last kick bars
+                    m = self.m
+                    for k in range(int(m.beat_pos(tk.end - 3 * bar)), int(m.beat_pos(tk.end))):
+                        tb = float(m.beat_time(k))
+                        if tk.go < tb < tk.end - 0.3 and m.st.kick_at(tb) and not any(abs(x["ts"] - tb) < 0.01 for x in slots):
+                            slots.append({"ts": tb, "kind": "aimed", "ph": 2, "pink": False, "seed": h01(self.seed, "xs", k),
+                                          "bk": m.bar_at(tb), "j": 7, "used": False})
+                    slots.sort(key=lambda x: x["ts"])
+                    ta = place_hit(h, tk.end - 0.3, 8 * bar, lo=tk.go + 2.0, hi=tk.end - 0.12, final=True, relax=True)
                 if ta is None:
                     break
                 self.hits[h].append(ta)
                 self.hits[h].sort()
                 hp[h] -= 1
                 self.inv[h].append((ta, ta + INV_HIT))
+                last_ev[h] = ta
                 if hp[h] <= 0:
                     kill(h, ta)
         # ---- pinks, dodges and misses for the rest of the slots
-        p_dodge = 0.35
+        p_dodge = 0.5
         for sl in slots:
             if sl["used"]:
                 continue
@@ -598,6 +758,11 @@ class Fight:
                 self.shots.append(s)
                 continue
             if sl["pink"] and self._place_pink(sl, tk):
+                continue
+            if kind in MINIONS:
+                if h01(self.seed, "mdodge", ts) < 0.65 and self._minion_dodge(sl, tk):
+                    continue
+                self._minion_miss(sl, tk)
                 continue
             if kind != "rain" and kind != "arc" and h01(self.seed, "dodge", ts) < p_dodge and self._place_dodge(sl, tk):
                 continue
@@ -645,6 +810,7 @@ class Fight:
                     self.shots.remove(s)
                     continue
                 self.parries.append((ta, h, float(x[0]), ty, "shot"))
+                self.moves.append((h, ("jump", j), s))
                 return True
         return False
 
@@ -674,6 +840,7 @@ class Fight:
                 if not self._add_jump(h, j, skip=s):
                     self.shots.remove(s)
                     continue
+                self.moves.append((h, ("jump", j), s))
                 return True
         return False
 
@@ -702,9 +869,15 @@ class Fight:
             if hi_x - lo_x > 330:
                 tries.append(("arc", (lo_x + hi_x) / 2, self.ground - 10))
         else:
+            if h01(self.seed, "skim", ts) < 0.55:       # a near miss: just over someone's head
+                for hh in ((0, 1) if r < 0.5 else (1, 0)):
+                    xh, yh, _ = self.pos(hh, [ts + 1.0])
+                    tries.append((kind, float(xh[0]), float(yh[0]) - TALL - 64))
             for k in range(4):
                 tries.append((kind, -150.0, self.ground - 470 - 120 * ((k * 0.29 + r) % 1.0)))
             tries.append((kind, hi_x + 190 + 0.5 * max(0.0, self.ex - hi_x - 400), self.ground - 10))
+        if kind == "arc" and not self.sky and h01(self.seed, "toes", ts) < 0.5:
+            tries.insert(0, ("arc", hi_x + 115, self.ground - 10))    # lands right at the front hero's toes
         for kd, tx, ty in tries:
             n = self._n_for(kd, ts, tx, ty)[0]
             s = self._aim(kd, ts, n, tx, ty, seed)
@@ -716,6 +889,117 @@ class Fight:
                 self.shots.append(s)
                 if spread:
                     self._spread_sides(s)
+                return True
+        return False
+
+    def _minion_dodge(self, sl, tk) -> bool:
+        """A sidekick goes for a hero who gets out of the way: hops a runner (and the partner hops it too
+        if it carries on into them), ducks a flyer, dashes clear of a popper."""
+        kind = sl["kind"]
+        order = (0, 1) if h01(self.seed, "mh", sl["ts"]) < 0.5 else (1, 0)
+        for h in order:
+            for n in self._n_for(kind, sl["ts"], float(self.pos(h, [sl["ts"] + 1.5])[0][0]), 800):
+                ta = self._arrival(sl["ts"], n)
+                if ta > tk.end - 0.5 * self.bar or not self._hero_free(h, ta, 0.8, 0.7):
+                    continue
+                x, y, _ = self.pos(h, [ta])
+                hx = float(x[0])
+                if kind == "runner":
+                    s = self._aim("runner", sl["ts"], n, hx, 0.0, sl["seed"])
+                    move = ("jump", Jump(ta - 0.38, 0.76, 205.0, False, "dodge"))
+                elif kind == "flyer":
+                    ty = float(y[0]) - (232 if not self.sky else -5)
+                    s = self._aim("flyer", sl["ts"], n, hx, ty, sl["seed"])
+                    move = ("duck", (ta - 0.4, 0.8))
+                else:
+                    s = self._aim("popper", sl["ts"], n, hx, 0.0, sl["seed"])
+                    away = 190.0 if (hx < 700 if h == 0 else hx < 1000) else -190.0
+                    move = ("dash", Run(ta - 0.55, ta - 0.36, ta + 0.7, ta + 1.3, hx + away, float(y[0])))
+                s.who, s.role = h, "dodge"
+                s.life = self._life(s)
+                self._apply(h, move, True)
+                ok = self._contact(s, h) is None
+                other = 1 - h
+                c2 = self._contact(s, other) if ok else None
+                self._apply(h, move, False)
+                if not ok:
+                    continue
+                j2 = None
+                if c2 is not None:
+                    if kind == "runner" and self._hero_free(other, c2, 0.6, 0.6):
+                        j2 = Jump(c2 - 0.3, 0.76, 205.0, False, "dodge")
+                        self.jumps[other].append(j2)
+                        self.jumps[other].sort(key=lambda q: q.t0)
+                        clear2 = self._contact(s, other) is None
+                        self.jumps[other].remove(j2)
+                        if not clear2:
+                            continue
+                    else:
+                        s.life = max(0.2, c2 - s.ts - 0.35)     # popped by a peashooter on the way
+                        s.end = "pop"
+                self.shots.append(s)
+                if not self._apply_checked(h, move, s):
+                    self.shots.remove(s)
+                    continue
+                if j2 is not None and not self._add_jump(other, j2, skip=s):
+                    self._apply(h, move, False)
+                    self.shots.remove(s)
+                    continue
+                self.moves.append((h, move, s))
+                if j2 is not None:
+                    self.moves.append((other, ("jump", j2), s))
+                return True
+        return False
+
+    def _apply(self, h: int, move, on: bool):
+        kind, m = move
+        lst = {"jump": self.jumps[h], "duck": self.ducks[h], "dash": self.runs[h]}[kind]
+        if on:
+            lst.append(m)
+            if kind == "jump":
+                lst.sort(key=lambda q: q.t0)
+        else:
+            lst.remove(m)
+
+    def _apply_checked(self, h: int, move, skip) -> bool:
+        """Make a dodge move for real if it doesn't carry the hero into anything else in the air."""
+        kind, m = move
+        if kind == "jump":
+            return self._add_jump(h, m, skip=skip)
+        self._apply(h, move, True)
+        t0, t1 = (m[0], m[0] + m[1]) if kind == "duck" else (m.t0, m.t3)
+        for s in self._shots_between(t0, t1):
+            if s is skip or s.role == "ring":
+                continue
+            c = self._contact(s, h)
+            if c is not None and not (s.who == h and s.role in ("hit", "parry") and abs(c - s.arrive) < 0.05):
+                self._apply(h, move, False)
+                return False
+        return True
+
+    def _minion_miss(self, sl, tk):
+        """A sidekick that doesn't get through: shot down by the peashooters on its way in (or, for a
+        popper, bursting up where nobody is standing)."""
+        ts, kind, seed = sl["ts"], sl["kind"], sl["seed"]
+        r = h01(self.seed, "mm", ts)
+        for k in range(6):
+            q = (r + k * 0.37) % 1.0
+            if kind == "popper":
+                tx = 250 + 1000 * q
+                s = self._aim("popper", ts, 3, tx, 0.0, seed)
+            else:
+                x0, y0, _ = self.pos(0, [ts + 1.5])
+                x1, y1, _ = self.pos(1, [ts + 1.5])
+                front = max(float(x0[0]), float(x1[0]))
+                tx = front + 260 + 300 * q
+                ty = (self.ground - 50) if kind == "runner" else (float(y1[0]) - 240 if not self.sky else 150 + 700 * q)
+                n = self._n_for(kind, ts, tx, ty)[0]
+                s = self._aim(kind, ts, n, tx, ty, seed)
+                s.life = s.p1 if kind == "flyer" else (tx - s.x0) / s.vx
+                s.end = "pop"
+            s.role = "miss"
+            if s.life > 0.2 and self._clear(s):
+                self.shots.append(s)
                 return True
         return False
 
@@ -829,16 +1113,38 @@ class Fight:
                 and not self._busy(h, t - 0.3, t1))
 
     def _clear_for_super(self, h: int, t: float):
-        """A hero mid-Super can't hop or parry: their pink and dodge shots in that window go overhead."""
+        """A hero mid-Super can't hop, duck, dash or parry: whatever they would have dodged or parried in
+        that window is sent somewhere else (over their heads, or shot down on the way in)."""
         t1 = t + self.super_dur
         self.busy[h].append((t, t1))
-        for j in [j for j in self.jumps[h] if j.t0 < t1 and t - 0.3 < j.t0 + j.dur and j.kind in ("parry", "dodge")]:
-            self.jumps[h].remove(j)
-            for s in [s for s in self.shots if s.who == h and abs(s.arrive - (j.t0 + 0.3)) < 0.02 and s.role in ("parry", "dodge")]:
-                self.shots.remove(s)
-                self.parries = [p for p in self.parries if not (p[1] == h and abs(p[0] - s.arrive) < 0.02)]
-                sl = {"ts": s.ts, "kind": s.kind, "seed": s.seed}
+
+        def span(mv):
+            kind, m = mv
+            return (m.t0, m.t0 + m.dur) if kind == "jump" else ((m[0], m[0] + m[1]) if kind == "duck" else (m.t0, m.t3))
+        gone = {id(s): s for hh, mv, s in self.moves if hh == h and span(mv)[0] < t1 and t - 0.3 < span(mv)[1]}
+        for s in gone.values():
+            for hh, mv, s2 in [x for x in self.moves if x[2] is s]:
+                self._apply(hh, mv, False)
+                self.moves.remove((hh, mv, s2))
+            self.shots.remove(s)
+            self.parries = [p for p in self.parries if not (p[1] == h and abs(p[0] - s.arrive) < 0.02)]
+            sl = {"ts": s.ts, "kind": s.kind, "seed": s.seed}
+            if s.kind in MINIONS:
+                self._minion_miss(sl, None)
+            else:
                 self._place_miss(sl, None)
+        # with those moves gone the hero is somewhere else: drop anything that would now pass through them
+        for _ in range(6):
+            stray = [x for x in self._shots_between(t - 1.0, t1 + 1.0) if x.role != "ring" and self._contact(x, h) is not None
+                     and not (x.who == h and x.role in ("hit", "parry"))]
+            if not stray:
+                break
+            for x in stray:
+                for hh, mv, s2 in [m for m in self.moves if m[2] is x]:
+                    self._apply(hh, mv, False)
+                    self.moves.remove((hh, mv, s2))
+                self.parries = [p_ for p_ in self.parries if not (abs(p_[0] - x.arrive) < 0.02 and x.role == "parry")]
+                self.shots.remove(x)
 
     # ================================================================ eggs that the heroes join in
     def egg_hops(self, P: story.Plan):
@@ -881,19 +1187,48 @@ class Fight:
 
     # ================================================================ checks
     def _validate(self):
-        """Count shots that touch a hero they weren't meant to (should be none)."""
+        """Count shots that touch a hero they weren't meant to (should be none), and note the near misses:
+        anything that passes within GRAZE px of a hero without touching them."""
         bad = 0
         for s in self.shots:
             if s.role == "ring":
                 continue
             for h in (0, 1):
                 c = self._contact(s, h)
-                if c is None:
+                if c is not None:
+                    if s.who == h and s.role in ("hit", "parry") and abs(c - s.arrive) < 0.15:
+                        continue
+                    bad += 1
                     continue
-                if s.who == h and s.role in ("hit", "parry") and abs(c - s.arrive) < 0.15:
-                    continue
-                bad += 1
+                g = self._closest(s, h)
+                if g is not None:
+                    self.grazes.append((g[0], h, g[1], s))
         self.anomalies = bad
+        self.grazes.sort(key=lambda g: g[0])
+
+    def _closest(self, s: Shot, h: int):
+        tt = np.arange(0.0, s.life, 1 / 60)
+        if not len(tt):
+            return None
+        sx, sy = self.shot_xy(s, tt)
+        ta = s.ts + tt
+        x, y, lf = self.pos(h, ta)
+        al = self.alive(h, ta)
+        r = SHOT_R * s.size
+        cr = self.crouch(h, ta)
+        if self.sky:
+            cy = y - lf + 5 + 160 * cr
+            d = np.hypot((sx - (x - 10)) / (PLANE_RX + r), (sy - cy) / (PLANE_RY + r))
+            d = (d - 1.0) * (PLANE_RY + r)
+        else:
+            feet = y - lf
+            top = feet - TALL * (1 - 0.48 * cr) - r
+            dx = np.maximum(np.abs(sx - x) - HALF_W - r, 0)
+            dy = np.maximum(np.maximum(top - sy, sy - feet - 8), 0)
+            d = np.hypot(dx, dy)
+        d = np.where(al, d, 1e9)
+        k = int(np.argmin(d))
+        return (float(ta[k]), float(d[k])) if d[k] < GRAZE else None
 
     # ================================================================ queries for drawing
     def ghost_xy(self, dn: Down, t: float):
@@ -935,8 +1270,9 @@ class Fight:
         n = HP
         evs = [(th, -1) for th in self.hits[h] if tk.t0 <= th <= t]
         evs += [(r[0] + 0.25, 0) for r in self.revives if r[2] == h and tk.t0 <= r[0] + 0.25 <= t]
+        evs += [(pk.t, 1) for pk in self.pickups if pk.h == h and pk.outcome == "got" and tk.t0 <= pk.t <= t]
         for te, kind in sorted(evs):
-            n = n - 1 if kind < 0 else 1
+            n = n - 1 if kind < 0 else (1 if kind == 0 else min(HP, n + 1))
         return max(0, n)
 
     def last_hit(self, h: int, t: float):

@@ -216,7 +216,7 @@ def gramophone(ink: Ink, c: Ctx, bx=1420.0, by=905.0):
 GRAMOPHONE = {"name": "gramophone", "title": "GRAMOPHONE GUS", "stage": "ballroom", "sky": False,
               "emit": (1180, 390), "draw": gramophone, "shot": "note",
               "patterns": [["aimed", "aimed", "arc"], ["aimed", "arc", "wave", "ring"], ["spread", "arc", "wave", "ring"]],
-    "face": (1220, 330, 120), "top": (1240, 120)}
+    "face": (1220, 330, 120), "top": (1240, 120), "minions": ("runner", "flyer")}
 
 
 # ---------------------------------------------------------------- 2. the sun
@@ -264,7 +264,7 @@ def sun(ink: Ink, c: Ctx, bx=1440.0, by=430.0):
 
 SUN = {"name": "sun", "title": "SUNNY SID", "stage": "sky", "sky": True, "emit": (1300, 470), "draw": sun,
        "shot": "fireball", "patterns": [["aimed", "wave"], ["spread", "wave", "aimed"], ["spread", "rain", "wave"]],
-    "face": (1440, 445, 190), "top": (1440, 190)}
+    "face": (1440, 445, 190), "top": (1440, 190), "minions": ("flyer",)}
 
 
 # ---------------------------------------------------------------- 3. the storm cloud
@@ -313,7 +313,7 @@ def cloud(ink: Ink, c: Ctx, bx=1420.0, by=360.0):
 
 CLOUD = {"name": "cloud", "title": "THUNDERING THELMA", "stage": "storm", "sky": True, "emit": (1260, 420),
          "draw": cloud, "shot": "bolt", "patterns": [["rain", "aimed"], ["rain", "aimed", "wave"], ["rain", "spread", "aimed"]],
-    "face": (1440, 385, 160), "top": (1440, 170)}
+    "face": (1440, 385, 160), "top": (1440, 170), "minions": ("flyer",)}
 
 
 # ---------------------------------------------------------------- 4. the kettle
@@ -369,7 +369,7 @@ def kettle(ink: Ink, c: Ctx, bx=1450.0, by=905.0):
 
 KETTLE = {"name": "kettle", "title": "KETTLE KATE", "stage": "kitchen", "sky": False, "emit": (1100, 520),
           "draw": kettle, "shot": "steam", "patterns": [["aimed", "arc"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]],
-    "face": (1480, 655, 150), "top": (1450, 420)}
+    "face": (1480, 655, 150), "top": (1450, 420), "minions": ("runner", "popper")}
 
 
 # ---------------------------------------------------------------- 5. the pipe organ
@@ -419,7 +419,7 @@ def organ(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
 
 ORGAN = {"name": "organ", "title": "THE PHANTOM PIPES", "stage": "graveyard", "sky": False, "emit": (1300, 420),
          "draw": organ, "shot": "ghostnote", "patterns": [["wave", "aimed"], ["wave", "arc", "aimed"], ["spread", "wave", "arc"]],
-    "face": (1450, 545, 140), "top": (1450, 300)}
+    "face": (1450, 545, 140), "top": (1450, 300), "minions": ("popper", "flyer")}
 
 
 # ---------------------------------------------------------------- 6. the octopus
@@ -468,7 +468,7 @@ def octopus(ink: Ink, c: Ctx, bx=1480.0, by=800.0):
 
 OCTOPUS = {"name": "octopus", "title": "CAPTAIN EIGHTARMS", "stage": "sea", "sky": False, "emit": (1300, 520),
            "draw": octopus, "shot": "ink", "patterns": [["arc", "aimed"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]],
-    "face": (1480, 570, 150), "top": (1490, 300)}
+    "face": (1480, 570, 150), "top": (1490, 300), "minions": ("runner", "flyer")}
 
 
 # ---------------------------------------------------------------- 7. the jukebox robot
@@ -526,7 +526,7 @@ def jukebox(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
 
 JUKEBOX = {"name": "jukebox", "title": "JUKEBOX JOE", "stage": "city", "sky": False, "emit": (1300, 520),
            "draw": jukebox, "shot": "record", "patterns": [["arc", "aimed"], ["aimed", "ring", "arc"], ["spread", "ring", "arc"]],
-    "face": (1450, 385, 90), "top": (1450, 120)}
+    "face": (1450, 385, 90), "top": (1450, 120), "minions": ("runner", "flyer")}
 
 
 # ---------------------------------------------------------------- 8. old man oak
@@ -577,7 +577,7 @@ def oak(ink: Ink, c: Ctx, bx=1480.0, by=905.0):
 
 OAK = {"name": "oak", "title": "OLD MAN OAK", "stage": "forest", "sky": False, "emit": (1300, 470), "draw": oak,
        "shot": "acorn", "patterns": [["arc", "rain"], ["arc", "wave", "rain"], ["spread", "rain", "arc"]],
-    "face": (1480, 595, 140), "top": (1480, 160)}
+    "face": (1480, 595, 140), "top": (1480, 160), "minions": ("runner", "flyer", "popper")}
 
 ROSTER = [GRAMOPHONE, SUN, CLOUD, KETTLE, ORGAN, OCTOPUS, JUKEBOX, OAK]
 BY_NAME = {b["name"]: b for b in ROSTER}
