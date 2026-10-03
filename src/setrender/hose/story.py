@@ -1,13 +1,16 @@
 """The cartoon's running order, worked out once from the music of the whole set:
 
 * an opening title card and a closing "THE END"
-* acts of about ten minutes, each a boss fight cut at section boundaries; the fight has three
-  phases, opens with READY? / GO! and ends in a KNOCKOUT and an iris-out on a downbeat
+* one act per boss in the pool (so every boss is beaten exactly once), cut at section boundaries;
+  an act is one or more takes of the fight: lost takes end when both heroes are down (a TAKE card,
+  then the fight restarts from the top at a section change), and the last take is won, three phases
+  in, with a KNOCKOUT and an iris-out on a downbeat
 * long breakdowns become intermissions (bouncing-ball sing-along, the overworld map, a vaudeville
   number), builds wind the boss up and drops land with an exclamation and a super attack
-* every shot, jump, parry and super is scheduled from beats, onsets and band energy, so any frame
-  can be drawn on its own (frames are pure functions of their index)
-* sound-classifier events (Neural Engine) and a few bar numbers trigger gags
+* every shot, hit, jump, parry, revive and super is scheduled from beats, onsets and band energy
+  (see combat.py), so any frame can be drawn on its own (frames are pure functions of their index)
+* sound-classifier events (Neural Engine) and a few bar numbers trigger gags, and an easter egg
+  turns up about once a minute
 """
 from __future__ import annotations
 
@@ -46,6 +49,17 @@ def h01(*a) -> float:
 
 
 @dataclass
+class Take:
+    """One attempt at a boss fight."""
+    n: int             # take number, 1 = the first attempt
+    t0: float          # the stage irises open (READY? follows half a bar later)
+    go: float
+    end: float         # lost: the TAKE card slams in here; won: KNOCKOUT
+    won: bool
+    phases: list[float] = field(default_factory=list)
+
+
+@dataclass
 class Act:
     k: int
     t0: float
@@ -53,11 +67,13 @@ class Act:
     boss: str
     stage: str
     sky: bool
-    phases: list[float]
-    go: float
+    phases: list[float]  # the winning take's phases
+    go: float            # the first take's GO
     ko: float
     variant: int = 0
     go_word: str = "GO!"
+    takes: list[Take] = field(default_factory=list)
+    phase_len: float = 0.0   # seconds of fighting per boss phase (the boss's stamina)
 
 
 @dataclass
@@ -73,7 +89,7 @@ class Card:
     t0: float
     t1: float
     text: str
-    kind: str          # ready | go | ko | word | inter
+    kind: str          # ready | go | ko | word | inter | take
 
 
 @dataclass
@@ -87,34 +103,12 @@ class Gag:
 
 
 @dataclass
-class Shot:            # a boss projectile
-    ts: float
-    kind: str          # aimed | arc | wave | spread | rain | ring
-    x0: float
-    y0: float
-    vx: float
-    vy: float
-    pink: bool
-    size: float
-    seed: float
-    life: float
-    end: str = "off"   # off | parry
-
-
-@dataclass
-class Jump:
-    t0: float
-    dur: float
-    height: float
-    parry: bool
-
-
-@dataclass
 class Plan:
     acts: list[Act] = field(default_factory=list)
     inters: list[Inter] = field(default_factory=list)
     cards: list[Card] = field(default_factory=list)
     gags: list[Gag] = field(default_factory=list)
+    eggs: list[Gag] = field(default_factory=list)
 
 
 class Music:
@@ -192,11 +186,16 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
     outro0 = m.snap_bar(max(intro_end + bar, dur - max(14.0, 8 * bar))) if dur > 60 else dur
     P.intro = (0.0, intro_end)
     P.outro = (outro0, dur)
+    P.period = m.period
 
-    # ---- acts: about act_len seconds each, cut at the section starts nearest the ideal points
+    # ---- acts: about act_len seconds each, but no more acts than bosses in the pool unless the set is
+    # very long (each boss is beaten exactly once); cut at the section starts nearest the ideal points
     act_len = float(cfg.get("act_minutes", 10)) * 60
     core = outro0 - intro_end
     n_acts = max(1, int(round(core / act_len)))
+    if n_acts > len(roster) and core / len(roster) <= 2.2 * act_len:
+        n_acts = len(roster)
+    act_len = core / n_acts
     secs = np.array([s for s in m.an.sections if intro_end + bar * 8 < s < outro0 - bar * 8])
     drops = np.array([d.t0 for d in st.drops])
     cuts = [intro_end]
@@ -204,7 +203,7 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
         ideal = intro_end + core * k / n_acts
         best, score = m.snap_bar(ideal), 1e9
         for s in secs:
-            if abs(s - ideal) > act_len * 0.3 or s - cuts[-1] < act_len * 0.5:
+            if abs(s - ideal) > act_len * 0.22 or s - cuts[-1] < act_len * 0.5:
                 continue
             sc = abs(s - ideal) / act_len - (0.25 if len(drops) and np.min(np.abs(drops - s)) < 4 else 0.0)
             if sc < score:
@@ -241,26 +240,19 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
         P.inters.append(Inter(t0, t1, kind, a.k))
         n_int += 1
 
-    # ---- phases: three, split at the bars nearest a third and two thirds of the fighting time
+    # ---- takes: most fights are lost a time or two first (a restart at a section change), the last
+    # take is won; phases split the winning take's fighting time in three
     for a in P.acts:
-        fight = [(a.go, a.ko)]
-        for it in (i for i in P.inters if i.act == a.k):
-            fight = [seg for (f0, f1) in fight for seg in ((f0, it.t0), (it.t1, f1)) if seg[1] - seg[0] > 0]
-        total = sum(f1 - f0 for f0, f1 in fight)
-        marks = []
-        for frac in (1 / 3, 2 / 3):
-            acc, target = 0.0, total * frac
-            for f0, f1 in fight:
-                if acc + (f1 - f0) >= target:
-                    marks.append(m.snap_bar(f0 + target - acc))
-                    break
-                acc += f1 - f0
-        a.phases = [a.go] + sorted(marks)
+        _plan_takes(m, a, [i for i in P.inters if i.act == a.k], cfg, rng)
 
     # ---- lettering cards
     for a in P.acts:
-        P.cards.append(Card(a.t0 + 0.5 * bar, a.go, "READY?", "ready"))
-        P.cards.append(Card(a.go, a.go + bar, a.go_word, "go"))
+        for tk in a.takes:
+            go_word = a.go_word if tk.n == 1 else GO_WORDS[int(h01("go", a.k, tk.n) * len(GO_WORDS))]
+            P.cards.append(Card(tk.t0 + 0.5 * bar, tk.go, "READY?", "ready"))
+            P.cards.append(Card(tk.go, tk.go + bar, go_word, "go"))
+            if not tk.won:
+                P.cards.append(Card(tk.end, tk.end + TAKE_CARD * bar, f"TAKE {tk.n + 1}", "take"))
         P.cards.append(Card(a.ko, a.ko + 2.2 * bar, "KNOCKOUT!", "ko"))
     for it in P.inters:
         if it.kind == "singalong":
@@ -278,6 +270,9 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
         a = next((a for a in P.acts if a.go < t < a.ko), None)
         if a is None or any(i.t0 - bar <= t < i.t1 + bar for i in P.inters):
             continue
+        tk = take_at(a, t)
+        if not (tk.go + bar < t < tk.end - 3 * bar):
+            continue
         P.cards.append(Card(t, t + bar, EXCLAIM[int(h01("ex", ex, t) * len(EXCLAIM))], "word"))
         ex += 1
     P.cards.sort(key=lambda c: c.t0)
@@ -293,7 +288,7 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
             continue
         if t0 - last.get(g, -1e9) < GAG_COOLDOWN.get(g, 45.0):
             continue
-        if any(c.kind in ("ko", "ready") and c.t0 - 2 < t0 < c.t1 + 2 for c in P.cards):
+        if any(c.kind in ("ko", "ready", "take") and c.t0 - 2 < t0 < c.t1 + 2 for c in P.cards):
             continue
         busy = [x for x in P.gags if x.t0 < t0 + 6 and x.t1 > t0]
         if len(busy) >= 2:
@@ -312,19 +307,187 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
                 P.gags.append(Gag(g, t0, t0 + (2.0 if g == "burn" else 8 * bar), 1.0, h01("egg", bar_no),
                                   f"bar {bar_no}"))
     P.gags.sort(key=lambda g: g.t0)
+    P.eggs = schedule_eggs(m, P, float(rng.random()))
     return P
 
 
+TAKE_CARD = 2      # bars the TAKE card holds
+TAKE_GAP = 4       # bars from a lost take's TAKE card to the next GO!
+
+
+def fight_time(t0: float, t1: float, inters) -> float:
+    """Seconds of fighting in [t0, t1), intermissions excluded."""
+    s = t1 - t0
+    for i in inters:
+        s -= max(0.0, min(t1, i.t1) - max(t0, i.t0))
+    return max(0.0, s)
+
+
+def advance(t: float, secs: float, inters) -> float:
+    """The time `secs` seconds of fighting after t (intermissions don't count)."""
+    for i in sorted(inters, key=lambda i: i.t0):
+        if i.t1 <= t:
+            continue
+        if t + secs <= i.t0:
+            break
+        if i.t0 > t:
+            secs -= i.t0 - t
+        t = i.t1
+    return t + secs
+
+
+def _plan_takes(m: Music, a: Act, inters, cfg: dict, rng):
+    """Lost takes end at section starts (or short breakdowns) with the kick playing into them, away
+    from intermissions; the winning take keeps at least ~40% of the act and is the longest."""
+    bar = 4 * m.period
+    total = fight_time(a.go, a.ko, inters)
+    key = int(rng.integers(1 << 30))
+    r = h01("takes", a.k, key)
+    weights = cfg.get("retake_weights", [0.12, 0.43, 0.33, 0.12])   # P(0, 1, 2, 3 lost takes)
+    nf, acc = 0, 0.0
+    for k, w in enumerate(weights):
+        acc += w / max(sum(weights), 1e-9)
+        if r < acc:
+            nf = k
+            break
+    kick = m.st.bar_kick
+
+    def ok(F):
+        if not (a.go + 16 * bar <= F <= a.ko - 24 * bar):
+            return False
+        if any(i.t0 - 4 * bar < F + (TAKE_GAP + 6) * bar and F - 6 * bar < i.t1 for i in inters):
+            return False
+        bk = m.bar_at(F + 0.05)
+        return all(bool(kick[min(max(bk - j, 0), len(kick) - 1)]) for j in (1, 2, 3)) if len(kick) else True
+    cands = sorted({m.snap_bar(s) for s in m.an.sections} | {m.snap_bar(b.t0) for b in m.st.breakdowns})
+    cands = [F for F in cands if ok(F)]
+    fracs = {0: [], 1: [0.42], 2: [0.24, 0.47], 3: [0.16, 0.33, 0.5]}[min(nf, 3)]
+    while True:
+        fails = []
+        for j, fr in enumerate(fracs):
+            target = advance(a.go, total * (fr + (h01("tf", a.k, j, key) - 0.5) * 0.08), inters)
+            lo = fails[-1] if fails else a.go
+            go_prev = m.bar_time(m.bar_at(lo + 0.05) + TAKE_GAP) if fails else a.go
+            pool = [F for F in cands if F > lo and fight_time(go_prev, F, inters) >= 60.0
+                    and abs(F - target) < 0.18 * total]
+            if pool:
+                fails.append(min(pool, key=lambda F: abs(F - target)))
+        gos = [a.go] + [m.bar_time(m.bar_at(F + 0.05) + TAKE_GAP) for F in fails]
+        win = fight_time(gos[-1], a.ko, inters)
+        lost = [fight_time(g, F, inters) for g, F in zip(gos, fails)]
+        if not fails or (win >= max(0.38 * total, 200.0) and all(x < 0.88 * win for x in lost)):
+            break
+        fracs = fracs[:-1]
+    a.phase_len = win / 3.0
+    a.takes = []
+    for n, (g, F) in enumerate(zip(gos, fails + [a.ko]), 1):
+        t0 = a.t0 if n == 1 else m.bar_time(m.bar_at(fails[n - 2] + 0.05) + TAKE_CARD)
+        tk = Take(n, t0, g, F, n == len(gos))
+        tk.phases = [g]
+        for j in (1, 2):
+            tm = advance(g, j * a.phase_len, inters)
+            if tm >= F - 2 * bar:
+                break
+            tm = m.snap_bar(tm)
+            for i in inters:
+                if i.t0 - 0.01 <= tm < i.t1:
+                    tm = i.t1
+            if tm - tk.phases[-1] >= 4 * bar and tm < F - 2 * bar:
+                tk.phases.append(tm)
+        a.takes.append(tk)
+    a.phases = list(a.takes[-1].phases)
+
+
+def take_at(a: Act, t: float) -> Take:
+    tk = a.takes[0]
+    for x in a.takes:
+        if x.t0 <= t:
+            tk = x
+    return tk
+
+
+# ---------------------------------------------------------------- easter eggs, about one a minute
+
+# name: (seconds, where): any = also on title/intermission screens; fight = boss stages; ground = boss
+# stages with a floor; sky = plane stages
+EGGS = {
+    "pie": (5.0, "fight"), "anvil": (4.5, "fight"), "pencil": (7.0, "fight"), "fly": (5.0, "any"),
+    "shadow": (6.0, "any"), "slip": (1.6, "any"), "balloons": (8.0, "any"), "ufo": (8.0, "any"),
+    "jelly": (8.0, "any"), "smiley": (6.0, "any"), "discoball": (8.0, "fight"), "cassette": (6.0, "any"),
+    "invader": (7.0, "any"), "qblock": (5.0, "ground"), "pipe": (6.0, "ground"), "stagehand": (6.0, "ground"),
+    "bowling": (4.0, "ground"), "bomb": (5.0, "ground"), "metronome": (8.0, "any"), "cuckoo": (5.0, "any"),
+    "plane": (7.0, "any"), "hotair": (10.0, "any"), "car": (8.0, "ground"), "bat": (7.0, "any"),
+    "konami": (6.0, "any"), "banana": (4.0, "ground"),
+}
+
+
+def schedule_eggs(m: Music, P: Plan, key: float) -> list[Gag]:
+    """One easter egg in every minute of the set (on a downbeat, clear of title cards and transitions),
+    dealt from a shuffled deck so the same egg doesn't come back for a while."""
+    bar = 4 * m.period
+    deck = sorted(EGGS, key=lambda e: h01("deck", e, key))
+    out: list[Gag] = []
+    blocked = [(c.t0 - bar, c.t1 + bar) for c in P.cards if c.kind != "word"]
+    blocked += [(a.t0 - 2 * bar, a.t0 + 2 * bar) for a in P.acts]
+    blocked += [(i.t0 - 2 * bar, i.t0 + 2 * bar) for i in P.inters] + [(i.t1 - bar, i.t1 + 2 * bar) for i in P.inters]
+    blocked += [(tk.end - 3 * bar, tk.end + (TAKE_CARD + 1) * bar) for a in P.acts for tk in a.takes if not tk.won]
+    blocked += [(a.ko - 2 * bar, a.t1 + 2 * bar) for a in P.acts]
+
+    def mode(t):
+        if t < P.intro[1] or t >= P.outro[0]:
+            return "card"
+        if any(i.t0 <= t < i.t1 for i in P.inters):
+            return "inter"
+        a = act_at(P, t)
+        return "sky" if a.sky else "ground"
+    n_min = int(m.dur // 60)
+    for k in range(1, n_min + 1):
+        lo, hi = 60.0 * k - 30, 60.0 * k + 15
+        bk0, bk1 = m.bar_at(lo) + 1, m.bar_at(hi)
+        cands = []
+        for bk in range(bk0, bk1 + 1):
+            t = m.bar_time(bk)
+            if not (lo <= t <= hi) or t < P.intro[1] + 2 * bar or t > P.outro[0] - 4 * bar:
+                continue
+            cands.append(t)
+        cands.sort(key=lambda t: abs(t - 60.0 * k + 8))
+        placed = False
+        for t in cands:
+            md = mode(t)
+            for j, e in enumerate(deck):
+                d, where = EGGS[e]
+                if md == "card" or (md == "inter" and where != "any") or (md == "sky" and where == "ground"):
+                    continue
+                if any(b0 < t + d and t < b1 for b0, b1 in blocked) or mode(t + d) != md:
+                    continue
+                if out and t < out[-1].t1 + 2 * bar:
+                    continue
+                out.append(Gag(e, t, t + d, -1.0 if h01("eside", k, key) < 0.5 else 1.0, h01("egg", k, key), "egg"))
+                deck.append(deck.pop(j))
+                placed = True
+                break
+            if placed:
+                break
+    return out
+
+
 def fighting(P: Plan, t: float):
-    """The act being fought at t (None during title cards, intermissions and the end card)."""
-    if t < P.intro[1] or t >= P.outro[0]:
+    """The act being fought at t (None during title cards, intermissions, TAKE cards and the end card)."""
+    if t < P.intro[1] or t >= P.outro[0] or inter_at(P, t) or take_card_at(P, t):
         return None
-    for it in P.inters:
-        if it.t0 <= t < it.t1:
-            return None
     for a in P.acts:
         if a.t0 <= t < a.t1:
             return a
+    return None
+
+
+def take_card_at(P: Plan, t: float):
+    """The lost take whose TAKE card is up at t, as (act, take), or None."""
+    for a in P.acts:
+        if a.t0 <= t < a.t1:
+            for tk in a.takes:
+                if not tk.won and tk.end <= t < tk.end + TAKE_CARD * 4 * P.period:
+                    return a, tk
     return None
 
 
@@ -343,209 +506,5 @@ def inter_at(P: Plan, t: float):
 
 
 def phase_of(a: Act, t: float) -> int:
-    return int(np.searchsorted(a.phases, t, side="right") - 1) if a.phases else 0
-
-
-# ---------------------------------------------------------------- fight choreography
-
-class Fight:
-    """Shots, jumps, parries and supers for one act, all scheduled up front."""
-
-    def __init__(self, m: Music, P: Plan, a: Act, boss_info: dict, seed: int, cfg: dict):
-        self.m, self.a = m, a
-        self.seed = seed
-        bar = 4 * m.period
-        self.sky = a.sky
-        self.ground = 905.0
-        ex, ey = boss_info["emit"]
-        pats = boss_info["patterns"]
-        rate = float(cfg.get("attack_rate", 1.0))
-        shots: list[Shot] = []
-        bars = range(m.bar_at(a.go + 0.05) + 1, m.bar_at(a.ko - 0.05))
-        inters = [i for i in P.inters if i.act == a.k]
-        n_pink = 0
-        for bk in bars:
-            tb = m.bar_time(bk)
-            if any(i.t0 - bar <= tb < i.t1 for i in inters):
-                continue
-            ph = phase_of(a, tb)
-            kick = bool(m.st.bar_kick[min(bk, len(m.st.bar_kick) - 1)]) if len(m.st.bar_kick) else True
-            if not kick:
-                continue
-            energy = float(m.st.bar_energy[min(bk, len(m.st.bar_energy) - 1)])
-            per_bar = [1, 2, 4][ph] if energy > 0.35 else [1, 1, 2][ph]
-            per_bar = max(1, int(round(per_bar * rate)))
-            for j in range(per_bar):
-                beat = j * 4 // per_bar
-                ts = m.beat_time(m.beat_pos(tb) + beat)
-                r = h01(seed, bk, j)
-                kinds = pats[min(ph, len(pats) - 1)]
-                kind = kinds[int(r * len(kinds))]
-                pink = (n_pink % 4 == 3)
-                n_pink += 1
-                tgt_x = 200 + 600 * h01(seed, bk, j, "x")
-                tgt_y = self.ground - 140 if not self.sky else 300 + 450 * h01(seed, bk, j, "y")
-                if kind == "spread":
-                    for s_ in (-1, 0, 1):
-                        ang = math.atan2(tgt_y - ey, tgt_x - ex) + s_ * 0.22
-                        sp = 680.0
-                        shots.append(Shot(ts, "aimed", ex, ey, math.cos(ang) * sp, math.sin(ang) * sp,
-                                          pink and s_ == 0, 1.0, h01(seed, bk, j, s_), 3.5))
-                    continue
-                if kind == "arc":
-                    T = 1.5 * m.period * 2
-                    vx = (tgt_x - ex) / T
-                    vy = (self.ground - 30 - ey - 0.5 * 1400 * T * T) / T
-                    shots.append(Shot(ts, "arc", ex, ey, vx, vy, pink, 1.1, r, T + 0.6))
-                elif kind == "rain":
-                    x = tgt_x + (h01(seed, bk, j, "rx") - 0.5) * 300
-                    shots.append(Shot(ts, "rain", x, -60, -40.0, 520.0, False, 1.0, r, 2.6))
-                    n_pink -= 1
-                elif kind == "wave":
-                    shots.append(Shot(ts, "wave", ex, tgt_y - 40, -520.0, 0.0, pink, 1.0, r, 3.6))
-                elif kind == "ring":
-                    shots.append(Shot(ts, "ring", ex, ey, -900.0, 0.0, False, 1.0, r, 1.6))
-                else:
-                    ang = math.atan2(tgt_y - ey, tgt_x - ex)
-                    sp = 640.0 + 120 * ph
-                    shots.append(Shot(ts, "aimed", ex, ey, math.cos(ang) * sp, math.sin(ang) * sp, pink, 1.0, r, 3.4))
-        self.shots = shots
-
-        # hero jumps: parry each pink shot when it reaches its target, plus hops on snares
-        self.jumps: list[list[Jump]] = [[], []]
-        self.parries: list[float] = []
-        for s in shots:
-            if not s.pink:
-                continue
-            h = 0 if h01(s.seed, "who") < 0.5 else 1
-            # time the shot reaches the hero's area
-            hx = self.hero_xy(h, s.ts)[0]
-            tt = self._arrival(s, hx)
-            if tt is None or tt < 0.4:
-                s.pink = False      # only shots the heroes can see coming are pink
-                continue
-            s.end, s.life = "parry", tt
-            self.jumps[h].append(Jump(s.ts + tt - 0.32, 0.55, 150.0, True))
-            self.parries.append(s.ts + tt)
-        self.parries.sort()
-        for k in range(len(m.beats)):
-            tb = m.beats[k]
-            if not (a.go + bar <= tb < a.ko - bar) or any(i.t0 <= tb < i.t1 for i in inters):
-                continue
-            if k % 4 in (1, 3) and m.beat_hmid[k] > 0.62 and h01(seed, "hop", k) < 0.3:
-                h = int(h01(seed, "hh", k) * 2)
-                if not any(abs(j.t0 - tb) < 1.2 for j in self.jumps[h]):
-                    self.jumps[h].append(Jump(tb, m.period * 1.6, 120.0 + 60 * h01(seed, k), False))
-        for js in self.jumps:
-            js.sort(key=lambda j: j.t0)
-
-        # supers: on drops inside the fight, once the cards are charged
-        self.supers = []
-        cards = 0
-        pi = 0
-        for d in sorted(m.st.drops, key=lambda d: d.t0):
-            t = m.snap_bar(d.t0)
-            if not (a.go + bar < t < a.ko - bar) or any(i.t0 <= t < i.t1 for i in inters):
-                continue
-            while pi < len(self.parries) and self.parries[pi] < t:
-                pi += 1
-            if pi - cards >= 2 or not self.supers:
-                self.supers.append(t)
-                cards = pi
-        self.super_dur = 2 * bar
-
-        # hero bullets: 8ths or 16ths while the hats are busy
-        self.bullets: list[tuple[float, int]] = []
-        for k in range(len(m.beats) - 1):
-            tb = m.beats[k]
-            if not (a.go <= tb < a.ko) or any(i.t0 <= tb < i.t1 for i in inters):
-                continue
-            hi = m.beat_high[k]
-            if hi < 0.25:
-                continue
-            sub = 4 if hi > 0.6 else 2
-            dt = (m.beats[k + 1] - tb) / sub
-            for j in range(sub):
-                for h in (0, 1):
-                    if j % 2 == h or sub == 2:
-                        self.bullets.append((tb + j * dt + h * 0.012, h))
-        self.bullets.sort()
-        self._bt = np.array([b[0] for b in self.bullets]) if self.bullets else np.zeros(0)
-        self._st = np.array([s.ts for s in shots]) if shots else np.zeros(0)
-
-    # ---- motion
-    def _arrival(self, s: Shot, hx: float):
-        for k in range(1, 90):
-            tt = k * 0.04
-            x, y = self.shot_xy(s, tt)
-            if x <= hx + 40:
-                return tt
-        return None
-
-    def shot_xy(self, s: Shot, tt: float):
-        if s.kind == "arc":
-            x = s.x0 + s.vx * tt
-            y = s.y0 + s.vy * tt + 0.5 * 1400 * tt * tt
-            T = 1.5 * self.m.period * 2
-            if tt > T:     # bounces once along the floor
-                y = min(y, self.ground - 30 - abs(math.sin((tt - T) * 6)) * 120 * math.exp(-(tt - T) * 2))
-            return x, y
-        if s.kind == "wave":
-            return s.x0 + s.vx * tt, s.y0 + math.sin(tt * 7 + s.seed * 6) * 70
-        return s.x0 + s.vx * tt, s.y0 + s.vy * tt
-
-    def hero_xy(self, h: int, t: float):
-        """Base position (feet for ground stages, plane centre for sky stages)."""
-        m = self.m
-        bk = m.bar_at(t)
-        blk = bk // 2
-        tb = m.bar_time(blk * 2)
-        lo, hi = ((110, 470), (540, 900))[h]
-        def tgt(j):
-            return lo + (hi - lo) * h01(self.seed, "hx", h, j)
-        u = min(1.0, max(0.0, (t - tb) / (m.period * 1.0)))
-        e = u * u * (3 - 2 * u)
-        x = tgt(blk - 1) + (tgt(blk) - tgt(blk - 1)) * e
-        moving = 0.0 < u < 1.0 and abs(tgt(blk) - tgt(blk - 1)) > 30
-        dirx = 1.0 if tgt(blk) >= tgt(blk - 1) else -1.0
-        if self.sky:
-            y = 260 + 420 * h01(self.seed, "hy", h, blk - 1)
-            y2 = 260 + 420 * h01(self.seed, "hy", h, blk)
-            y = y + (y2 - y) * e + math.sin(t * 2.1 + h * 2) * 26
-            return x, y, moving, dirx
-        return x, self.ground, moving, dirx
-
-    def jump_at(self, h: int, t: float):
-        for j in self.jumps[h]:
-            if j.t0 <= t < j.t0 + j.dur:
-                u = (t - j.t0) / j.dur
-                return 4 * j.height * u * (1 - u), j, u
-            if j.t0 > t:
-                break
-        return 0.0, None, 0.0
-
-    def active_shots(self, t: float):
-        if not len(self._st):
-            return []
-        i1 = int(np.searchsorted(self._st, t, side="right"))
-        i0 = int(np.searchsorted(self._st, t - 4.0))
-        return [s for s in self.shots[i0:i1] if t - s.ts < s.life]
-
-    def active_bullets(self, t: float, travel: float = 0.42):
-        if not len(self._bt):
-            return []
-        i1 = int(np.searchsorted(self._bt, t, side="right"))
-        i0 = int(np.searchsorted(self._bt, t - travel - 0.15))
-        return self.bullets[i0:i1]
-
-    def super_at(self, t: float):
-        for s in self.supers:
-            if s <= t < s + self.super_dur:
-                return s
-        return None
-
-    def cards_at(self, t: float) -> int:
-        """Super meter cards (0..5): parries since the last super."""
-        last = max([s for s in self.supers if s <= t], default=-1e9)
-        n = sum(1 for p in self.parries if last <= p <= t)
-        return min(5, n + 1)
+    ph = take_at(a, t).phases if a.takes else a.phases
+    return max(0, int(np.searchsorted(ph, t, side="right") - 1)) if ph else 0

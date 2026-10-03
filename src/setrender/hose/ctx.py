@@ -33,6 +33,12 @@ class Ctx:
     drawing: int = 0
     build: float = 0.0       # 0..1 while a build winds up
     hue: float = 0.0         # palette rotation for rematches
+    dmg: float = 0.0         # how beaten-up the boss is this take, 0 (fresh) .. 1 (knocked out)
+    laugh: float = 0.0       # the boss is laughing (it just downed a hero)
+    pie: float = -1.0        # easter eggs on the boss's face: cream pie, soot, a pencilled moustache
+    soot: float = -1.0
+    stache: float = -1.0
+    take: int = 1
 
     @property
     def ph(self) -> float:
