@@ -414,7 +414,8 @@ class HoseScene:
                         continue
                     x, y = F.shot_xy(s, tt)
                     x2, y2 = F.shot_xy(s, tt + 0.02)
-                    bosses.projectile(ink, b["shot"], x, y, s.size, s.pink, c.td, s.seed, (x2 - x) / 0.02, (y2 - y) / 0.02)
+                    shot_kind = b.get("shot2") if c.phase == 2 and b.get("shot2") else b["shot"]
+                    bosses.projectile(ink, shot_kind, x, y, s.size, s.pink, c.td, s.seed, (x2 - x) / 0.02, (y2 - y) / 0.02)
                 if a.stage == "sea":
                     stage(ink, c, "water")
                 # heroes and their shots
@@ -765,6 +766,13 @@ class HoseScene:
         if iris is not None:
             f[12:15] = iris
         P = self.P
+        a = story.act_at(P, t) if P.acts else None
+        if a is not None and a.boss == "projectionist" and a.t0 <= t < a.t1:
+            tk = story.take_at(a, t)
+            for ph_t in tk.phases[1:]:
+                if 0 <= t - ph_t < 1.6:          # the film burns through, then the next reel takes over
+                    u = (t - ph_t) / 1.6
+                    f[16:19] = [W * 0.62, H * 0.3, 30 + 340 * math.sin(math.pi * u) ** 1.5]
         for g in P.gags:
             if g.kind == "burn" and g.t0 <= t < g.t1:
                 u = (t - g.t0) / (g.t1 - g.t0)

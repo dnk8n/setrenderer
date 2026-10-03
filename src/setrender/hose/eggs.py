@@ -285,7 +285,7 @@ def jelly(ink: Ink, c: Ctx, g: Gag, u: float, w: Where):
             ink.bez(sx, 30, sx + 40 * math.sin(c.t * 3 + k), 140, sx + 20 * math.sin(c.t * 2 + k * 1.3) - 30 * g.side,
                     240 + 20 * pump, 6, 2, fill=rgb("f4b8e0"), ink=2, shade=0)
         with ink.outlined(4):
-            ink.pie(0, 30, 90 * (1 + 0.12 * pump), 85 * (1 - 0.1 * pump), cut=0.0, half=1.57, fill=rgb("f08ac8"))
+            ink.pie(0, 30, 90 * (1 + 0.12 * pump), 85 * (1 - 0.1 * pump), cut=0.0, half=1.57, rot=math.pi, fill=rgb("f08ac8"))
         ink.ellipse(-30, -20, 18, 26, fill=(1, 1, 1, 0.5), ink=0, shade=0, rot=0.4)
         rig.eye(ink, -22, 0, 10, 15, (0, 0.2), 0.0)
         rig.eye(ink, 22, 0, 10, 15, (0, 0.2), 0.0)

@@ -288,7 +288,10 @@ def _plan_checks(set_audio):
                 bul_ok += grid and m.beat_high[k] >= 0.25
         for t in F.supers:
             n_sup += 1
-            sup_ok += min(abs(t - d) for d in drops) * fps <= 1.0
+            # on a drop, or (a full hand that can't wait) on the downbeat of a big bar
+            bk = m.bar_at(t + 0.02)
+            big = abs(m.bar_time(bk) - t) * fps <= 1.0 and float(st.bar_energy[min(bk, len(st.bar_energy) - 1)]) > 0.4
+            sup_ok += min(abs(t - d) for d in drops) * fps <= 1.0 or big
     rec("R9", on_beat == n_shots and in_kick == n_shots and bul_ok == n_bul and sup_ok == n_sup and parried == pink
         and hit_beat == n_hit and rev_beat == n_rev,
         boss_shots=n_shots, on_beat=on_beat, in_kick_bars=in_kick, hero_shots=n_bul, hero_shots_on_grid_when_hats=bul_ok,
@@ -413,7 +416,7 @@ def _combat_checks(sc):
             for te, hh in F.exs:
                 if hh == h:
                     b, a = F.meter(h, te - 1e-6), F.meter(h, te + 1e-6)
-                    if b < 1 - 1e-9 or abs((b - a) - 1.0) > 1e-6:
+                    if b < 1 - 1e-9 or b >= 5 - 1e-9 or abs((b - a) - 1.0) > 1e-6:
                         bad17.append(("EX", x.boss, h, round(te, 2), round(b, 3), round(a, 3)))
             for s0, hh in F.super_by:
                 if hh == h:

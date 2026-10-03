@@ -33,13 +33,13 @@ film:
 boil: 1.0             # line boil (hand-inked wobble from drawing to drawing), 0 = steady lines
 
 story:
-  act_minutes: 10     # target act length; capped at one act per boss so each boss is beaten exactly once
+  act_minutes: 8      # target act length; capped at one act per boss so each boss is beaten exactly once
   attack_rate: 1.0    # boss shots per bar, relative
-  retake_weights: [0.12, 0.43, 0.33, 0.12]   # chance of 0, 1, 2 or 3 lost takes before a fight is won
+  retake_weights: [0.04, 0.3, 0.42, 0.24]    # chance of 0, 1, 2 or 3 lost takes before a fight is won
   sidekicks: true     # the bosses' sidekicks (runners to hop, flyers to duck, poppers to dash from)
 
-# all eight by default; a list picks and orders the pool
-bosses: [gramophone, sun, cloud, kettle, organ, octopus, jukebox, oak]
+# all thirteen by default; a list picks and orders the pool
+bosses: [gramophone, sun, cloud, kettle, organ, octopus, jukebox, oak, jelly, hamhock, lava, don, projectionist]
 
 hud: {enabled: true}
 
@@ -77,6 +77,8 @@ keywords:
   chill:    {story.attack_rate: 0.6}
   sky:      {bosses: [sun, cloud]}
   spooky:   {bosses: [organ, cloud, octopus]}
+  classic:  {bosses: [gramophone, sun, cloud, kettle, organ, octopus, jukebox, oak]}
+  party:    {bosses: [jelly, hamhock, lava, don, projectionist]}
   flawless: {story.retake_weights: [1, 0, 0, 0]}
   hardcore: {story.retake_weights: [0, 0.2, 0.4, 0.4]}
   nosidekicks: {story.sidekicks: false}

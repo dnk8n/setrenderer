@@ -37,9 +37,9 @@ from .story import h01
 HP = 3
 INV_HIT = 1.5          # seconds untouchable after a hit
 INV_REVIVE = 2.0       # ... and after a revive
-GHOST_RISE = 90.0      # px/s
+GHOST_RISE = 70.0      # px/s (slow enough for the partner to get there more often)
 GHOST_Y0 = 170.0       # ghost starts this far above the feet
-BULLET_CARD = 1 / 45   # super meter per peashooter bullet that lands
+BULLET_CARD = 1 / 70   # super meter per peashooter bullet that lands
 G = 1400.0             # arc gravity
 GROUND = 905.0
 SHOT_R = 26.0
@@ -442,6 +442,7 @@ class Fight:
         bar = self.bar
         out = []
         n_pink = int(h01(self.seed, tk.n, "pk") * 4)
+        drop_bars = {m.bar_at(m.snap_bar(d.t0) + 0.05) for d in m.st.drops}
         for bk in range(m.bar_at(tk.go + 0.05) + 1, m.bar_at(tk.end - 0.05)):
             tb = m.bar_time(bk)
             if any(i.t0 - bar <= tb < i.t1 for i in self.inters):
@@ -451,7 +452,9 @@ class Fight:
                 continue
             ph = story.phase_of(a, tb)
             energy = float(m.st.bar_energy[min(bk, len(m.st.bar_energy) - 1)])
-            per_bar = [1, 2, 4][ph] if energy > 0.35 else [1, 1, 2][ph]
+            per_bar = [2, 3, 5][ph] if energy > 0.35 else [1, 2, 3][ph]
+            if bk in drop_bars or bk - 1 in drop_bars:
+                per_bar += 3                     # a barrage on every drop
             per_bar = max(1, int(round(per_bar * self.rate)))
             for j in range(per_bar):
                 beat = j * 4 // per_bar
@@ -463,11 +466,15 @@ class Fight:
                 n_pink += 1
                 out.append({"ts": ts, "kind": kind, "ph": ph, "pink": pink, "seed": r, "bk": bk, "j": j, "used": False})
             # the boss's sidekicks join in, more of them as the fight goes on
-            if self.minion_kinds and h01(self.seed, "mn", bk) < [0.3, 0.45, 0.6][ph] * self.rate:
-                ts = float(m.beat_time(m.beat_pos(tb) + (1 if h01(self.seed, "mb", bk) < 0.5 else 3)))
-                kind = self.minion_kinds[int(h01(self.seed, "mk", bk) * len(self.minion_kinds))]
-                out.append({"ts": ts, "kind": kind, "ph": ph, "pink": False, "seed": h01(self.seed, "ms", bk), "bk": bk,
-                            "j": 9, "used": False})
+            for jm, beat in enumerate((1, 3)):
+                p_m = [0.45, 0.65, 0.85][ph] if jm == 0 else [0.0, 0.2, 0.45][ph]
+                if not self.minion_kinds or h01(self.seed, "mn", bk, jm) >= p_m * self.rate:
+                    continue
+                b2 = beat if h01(self.seed, "mb", bk) < 0.5 or jm else 4 - beat
+                ts = float(m.beat_time(m.beat_pos(tb) + b2))
+                kind = self.minion_kinds[int(h01(self.seed, "mk", bk, jm) * len(self.minion_kinds))]
+                out.append({"ts": ts, "kind": kind, "ph": ph, "pink": False, "seed": h01(self.seed, "ms", bk, jm), "bk": bk,
+                            "j": 9 + jm, "used": False})
         out.sort(key=lambda sl: sl["ts"])
         return out
 
@@ -483,17 +490,17 @@ class Fight:
         fin = tk.end - 1.25 * self.bar
         r = h01(key, "pattern")
         if not tk.won:
-            if r < 0.38:
+            if r < 0.3:
                 pat = "revive_then_wipe"      # A goes down, B saves them; later A falls for good, then B
                 hits = [(at(0.16, 1), A), (at(0.3, 2), A), (at(0.44, 3), A), (at(0.78, 4), A),
                         (at(0.38, 5), B), (at(0.66, 6), B), (fin, B)]
                 rev = {A: [True, False], B: [False]}
-            elif r < 0.58:
+            elif r < 0.42:
                 pat = "one_then_other"        # A's ghost floats off out of reach; B soldiers on, then falls
                 hits = [(at(0.22, 1), A), (at(0.5, 2), A), (at(0.72, 3), A),
                         (at(0.4, 4), B), (at(0.86, 5), B), (fin, B)]
                 rev = {A: [False], B: [False]}
-            elif r < 0.78:
+            elif r < 0.8:
                 pat = "both_revive"           # they save each other once each, then go down together
                 hits = [(at(0.14, 1), A), (at(0.26, 2), A), (at(0.36, 3), A), (at(0.85, 4), A),
                         (at(0.3, 5), B), (at(0.5, 6), B), (at(0.62, 7), B), (fin, B)]
@@ -504,23 +511,22 @@ class Fight:
                         (at(0.42, 4), B), (at(0.72, 5), B), (fin, B)]
                 rev = {A: [False], B: [False]}
         else:
-            if r < 0.12:
+            if r < 0.08:
                 pat = "close"                 # never quite down, but always hurting
                 hits = [(at(0.25, 1), A), (at(0.6, 2), A), (at(0.35, 4), B), (at(0.8, 5), B)]
                 rev = {A: [], B: []}
-            elif r < 0.3:
+            elif r < 0.2:
                 pat = "scrape"                # both end on their last heart (a heart grabbed buys one more knock)
                 hits = [(at(0.15, 1), A), (at(0.55, 2), A), (at(0.3, 4), B), (at(0.85, 5), B)]
                 rev = {A: [], B: []}
-            elif r < 0.62:
+            elif r < 0.56:
                 pat = "revive"
-                hits = [(at(0.14, 1), A), (at(0.28, 2), A), (at(0.44, 3), A), (at(0.35, 5), B), (at(0.62, 6), B),
-                        (at(0.82, 4), B)]
+                hits = [(at(0.14, 1), A), (at(0.28, 2), A), (at(0.44, 3), A), (at(0.35, 5), B), (at(0.72, 6), B)]
                 rev = {A: [True], B: []}
-            elif r < 0.82:
+            elif r < 0.9:
                 pat = "double_revive"         # each saves the other once on the way to the knockout
                 hits = [(at(0.1, 1), A), (at(0.2, 2), A), (at(0.32, 3), A),
-                        (at(0.26, 5), B), (at(0.46, 6), B), (at(0.6, 7), B), (at(0.85, 4), A)]
+                        (at(0.26, 5), B), (at(0.46, 6), B), (at(0.6, 7), B)]
                 rev = {A: [True], B: [True]}
             else:
                 pat = "solo"                  # A's ghost floats off; B finishes the job alone
@@ -667,11 +673,11 @@ class Fight:
                     if t < last_ev[h] + 0.5 or not self._hero_free(h, t, 1.3, 0.6):
                         continue
                     r = h01(self.seed, "heart", t)
-                    outcome = "got" if hp[h] < HP and r < 0.58 else ("miss" if r < 0.84 or hp[h] >= HP else "stolen")
+                    outcome = "got" if hp[h] < HP and r < 0.48 else ("miss" if r < 0.8 or hp[h] >= HP else "stolen")
                     if outcome == "got" and not tk.won and t > tk.go + 0.72 * D:
                         outcome = "miss" if r < 0.3 else "stolen"     # so close, just before the wipe
-                    high = h01(self.seed, "hi", t) < 0.4
-                    jh = 235.0 if high else 160.0
+                    high = h01(self.seed, "hi", t) < 0.65
+                    jh = 250.0 if high else 170.0
                     jmp = Jump(t - 0.3, 0.6, jh, False, "grab")
                     if not self._add_jump(h, jmp):
                         continue
@@ -897,7 +903,7 @@ class Fight:
             if self._clear(s):
                 self.shots.append(s)
                 if spread:
-                    self._spread_sides(s)
+                    self._spread_sides(s, wide=sl.get("ph", 0) >= 1)
                 return True
         return False
 
@@ -922,7 +928,8 @@ class Fight:
                     move = ("duck", (ta - 0.4, 0.8))
                 else:
                     s = self._aim("popper", sl["ts"], n, hx, 0.0, sl["seed"])
-                    away = 190.0 if (hx < 700 if h == 0 else hx < 1000) else -190.0
+                    away = 190.0 if hx < (330 if h == 0 else 720) else -190.0
+                    away = min(max(hx + away, 80.0), 980.0) - hx
                     move = ("dash", Run(ta - 0.55, ta - 0.36, ta + 0.7, ta + 1.3, hx + away, float(y[0]), "dash"))
                 s.who, s.role = h, "dodge"
                 s.life = self._life(s)
@@ -944,7 +951,9 @@ class Fight:
                         if not clear2:
                             continue
                     else:
-                        s.life = max(0.2, c2 - s.ts - 0.35)     # popped by a peashooter on the way
+                        if c2 - s.ts - 0.35 < 0.25:
+                            continue
+                        s.life = c2 - s.ts - 0.35               # popped by a peashooter on the way
                         s.end = "pop"
                 self.shots.append(s)
                 if not self._apply_checked(h, move, s):
@@ -1012,10 +1021,10 @@ class Fight:
                 return True
         return False
 
-    def _spread_sides(self, s: Shot):
+    def _spread_sides(self, s: Shot, wide: bool = False):
         ang = math.atan2(s.vy, s.vx)
         sp = math.hypot(s.vx, s.vy)
-        for k in (-1, 1):
+        for k in ((-2, -1, 1, 2) if wide else (-1, 1)):
             a2 = ang + k * 0.22
             q = Shot(s.ts, "aimed", s.x0, s.y0, math.cos(a2) * sp, math.sin(a2) * sp, False, 1.0,
                      h01(s.seed, k), 3.0)
@@ -1064,8 +1073,9 @@ class Fight:
             ev = [(t, "b") for t, hh in self.bullets if hh == h and tk.go <= t < tk.end]
             ev += [(p[0], "p", p) for p in self.parries if p[1] == h and tk.go <= p[0] < tk.end]
             ev += [(t, "x", bk) for t, bk in exc if h01(self.seed, "ex", h, bk) < 0.2]
+            ev += [(t, "f", bk) for t, bk in exc]      # a full hand goes off on the next big downbeat
             ev += [(t, "s") for t in drops]
-            ev.sort(key=lambda e: (e[0], {"x": 0, "b": 1, "p": 2, "s": 3}[e[1]]))
+            ev.sort(key=lambda e: (e[0], {"x": 0, "f": 0.5, "b": 1, "p": 2, "s": 3}[e[1]]))
             mv = 0.0
             mt, vv = self.meter_t[h], self.meter_v[h]
             mt.append(tk.go)
@@ -1084,8 +1094,8 @@ class Fight:
                     if e[2] not in self.parries:      # given up to make room for a Super Art
                         continue
                     mv = min(5.0, mv + 1.0)
-                elif kind == "s":
-                    if mv >= 5.0 - 1e-9 and self._super_free(h, t):
+                elif kind in ("s", "f"):
+                    if mv >= 5.0 - 1e-9 and self._super_free(h, t) and not any(t - s0 < 2 * self.super_dur for s0 in supers):
                         supers.append(t)
                         self.super_by.append((t, h))
                         if t not in self.supers:
@@ -1096,8 +1106,8 @@ class Fight:
                         continue
                 elif kind == "x":
                     nxt = next((d for d in drops if d > t), 1e18)
-                    if mv < 1.0 or t - last_ex < 3 * bar or (mv >= 4.0 and nxt - t < 16.0):
-                        continue
+                    if mv < 1.0 or mv >= 5.0 - 1e-9 or t - last_ex < 3 * bar or (mv >= 4.0 and nxt - t < 16.0):
+                        continue        # a full hand never goes on an EX: it waits for the jumbo Super Art
                     if not self._hero_free(h, t, 0.3, 0.5) or any(abs(t - s0) < bar for s0 in supers):
                         continue
                     mv -= 1.0
@@ -1144,8 +1154,9 @@ class Fight:
                 self._place_miss(sl, None)
         # with those moves gone the hero is somewhere else: drop anything that would now pass through them
         for _ in range(6):
-            stray = [x for x in self._shots_between(t - 1.0, t1 + 1.0) if x.role != "ring" and self._contact(x, h) is not None
-                     and not (x.who == h and x.role in ("hit", "parry"))]
+            stray = [x for x in self._shots_between(t - 2.0, t1 + 2.0) if x.role != "ring"
+                     and any(self._contact(x, hh) is not None and not (x.who == hh and x.role in ("hit", "parry"))
+                             for hh in (0, 1))]
             if not stray:
                 break
             for x in stray:
@@ -1360,7 +1371,8 @@ class Fight:
         if tk.won and t >= tk.end:
             return 1.0
         f = story.fight_time(tk.go, min(t, tk.end), self.inters)
-        return float(min(1.0, f / max(3 * self.a.phase_len, 1e-3)))
+        raw = min(1.0, f / max(3 * self.a.phase_len, 1e-3))
+        return float(1 - (1 - raw) ** 2.2)        # the wear shows early and keeps piling on
 
     def laugh(self, t: float) -> float:
         """The boss laughs after it downs a hero, and all the way to the TAKE card when both are down."""

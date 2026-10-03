@@ -190,7 +190,7 @@ def plan(m: Music, st, rng: np.random.Generator, roster: list[dict], cfg: dict, 
 
     # ---- acts: about act_len seconds each, but no more acts than bosses in the pool unless the set is
     # very long (each boss is beaten exactly once); cut at the section starts nearest the ideal points
-    act_len = float(cfg.get("act_minutes", 10)) * 60
+    act_len = float(cfg.get("act_minutes", 8)) * 60
     core = outro0 - intro_end
     n_acts = max(1, int(round(core / act_len)))
     if n_acts > len(roster) and core / len(roster) <= 2.2 * act_len:
@@ -343,7 +343,7 @@ def _plan_takes(m: Music, a: Act, inters, cfg: dict, rng):
     total = fight_time(a.go, a.ko, inters)
     key = int(rng.integers(1 << 30))
     r = h01("takes", a.k, key)
-    weights = cfg.get("retake_weights", [0.12, 0.43, 0.33, 0.12])   # P(0, 1, 2, 3 lost takes)
+    weights = cfg.get("retake_weights", [0.04, 0.3, 0.42, 0.24])   # P(0, 1, 2, 3 lost takes)
     nf, acc = 0, 0.0
     for k, w in enumerate(weights):
         acc += w / max(sum(weights), 1e-9)
@@ -353,13 +353,14 @@ def _plan_takes(m: Music, a: Act, inters, cfg: dict, rng):
     kick = m.st.bar_kick
 
     def ok(F):
-        if not (a.go + 16 * bar <= F <= a.ko - 24 * bar):
+        if not (a.go + 12 * bar <= F <= a.ko - 20 * bar):
             return False
         if any(i.t0 - 4 * bar < F + (TAKE_GAP + 6) * bar and F - 6 * bar < i.t1 for i in inters):
             return False
         bk = m.bar_at(F + 0.05)
         return all(bool(kick[min(max(bk - j, 0), len(kick) - 1)]) for j in (1, 2, 3)) if len(kick) else True
-    cands = sorted({m.snap_bar(s) for s in m.an.sections} | {m.snap_bar(b.t0) for b in m.st.breakdowns})
+    cands = sorted({m.snap_bar(s) for s in m.an.sections} | {m.snap_bar(b.t0) for b in m.st.breakdowns}
+                   | {m.bar_time(k) for k in range(m.bar_at(a.go), m.bar_at(a.ko) + 1) if k % 16 == 0})   # phrase starts
     cands = [F for F in cands if ok(F)]
     fracs = {0: [], 1: [0.42], 2: [0.24, 0.47], 3: [0.16, 0.33, 0.5]}[min(nf, 3)]
     while True:
@@ -368,14 +369,14 @@ def _plan_takes(m: Music, a: Act, inters, cfg: dict, rng):
             target = advance(a.go, total * (fr + (h01("tf", a.k, j, key) - 0.5) * 0.08), inters)
             lo = fails[-1] if fails else a.go
             go_prev = m.bar_time(m.bar_at(lo + 0.05) + TAKE_GAP) if fails else a.go
-            pool = [F for F in cands if F > lo and fight_time(go_prev, F, inters) >= 60.0
+            pool = [F for F in cands if F > lo and fight_time(go_prev, F, inters) >= 45.0
                     and abs(F - target) < 0.18 * total]
             if pool:
                 fails.append(min(pool, key=lambda F: abs(F - target)))
         gos = [a.go] + [m.bar_time(m.bar_at(F + 0.05) + TAKE_GAP) for F in fails]
         win = fight_time(gos[-1], a.ko, inters)
         lost = [fight_time(g, F, inters) for g, F in zip(gos, fails)]
-        if not fails or (win >= max(0.38 * total, 200.0) and all(x < 0.88 * win for x in lost)):
+        if not fails or (win >= max(0.33 * total, 150.0) and all(x < 0.88 * win for x in lost)):
             break
         fracs = fracs[:-1]
     a.phase_len = win / 3.0
@@ -458,7 +459,7 @@ def schedule_eggs(m: Music, P: Plan, key: float) -> list[Gag]:
                 d, where = EGGS[e]
                 if md == "card" or (md == "inter" and where != "any") or (md == "sky" and where == "ground"):
                     continue
-                if fresh and any(x.kind == e and t - x.t0 < 480 for x in out):
+                if fresh and any(x.kind == e and t - x.t0 < 610 for x in out):
                     continue        # not the same egg twice in eight minutes, if anything else fits
                 if any(b0 < t + d and t < b1 for b0, b1 in blocked) or mode(t + d) != md:
                     continue

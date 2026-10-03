@@ -397,3 +397,8 @@ def forest(ink: Ink, c: Ctx, layer: str):
 
 STAGES = {"ballroom": ballroom, "sky": skystage, "storm": lambda ink, c, layer: skystage(ink, c, layer, storm=True),
           "kitchen": kitchen, "graveyard": graveyard, "sea": sea, "city": city, "forest": forest}
+
+
+from .stages_more import cinema, festival, orchard, rave, speakeasy  # noqa: E402
+
+STAGES.update({"orchard": orchard, "festival": festival, "rave": rave, "speakeasy": speakeasy, "cinema": cinema})

@@ -40,7 +40,7 @@ def _wings(ink: Ink, c: Ctx, x, y, s=1.0, col=WHITE, span=46.0):
 
 # ---------------------------------------------------------------- runners (feet on the floor at y)
 
-def record_runner(ink: Ink, c: Ctx, x, y, t, run):
+def record_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
     with ink.at(x, y):
         _legs(ink, c, -20, run)
     with ink.at(x, y - 54, 0.12 * math.sin(c.t * 14)):
@@ -51,7 +51,7 @@ def record_runner(ink: Ink, c: Ctx, x, y, t, run):
         rig.mouth(ink, 0, 10, 16, 0.5)
 
 
-def teacup_runner(ink: Ink, c: Ctx, x, y, t, run):
+def teacup_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
     with ink.at(x, y):
         _legs(ink, c, -18, run, shoe=rgb("3a6ea8"))
     with ink.at(x, y - 48, 0.1 * math.sin(c.t * 12)):
@@ -68,7 +68,7 @@ def teacup_runner(ink: Ink, c: Ctx, x, y, t, run):
             ink.ellipse(-8 + 14 * k, -60 - 50 * q, 8 + 10 * q, fill=(1, 1, 1, 0.7 * (1 - q)), ink=2 * (1 - q), shade=0.2)
 
 
-def crab_runner(ink: Ink, c: Ctx, x, y, t, run):
+def crab_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
     with ink.at(x, y - 36):
         for side in (-1, 1):
             for k in range(3):
@@ -86,7 +86,7 @@ def crab_runner(ink: Ink, c: Ctx, x, y, t, run):
             rig.eye(ink, side * 14, -48, 7, 9, (-0.8, 0), 0.0)
 
 
-def nickel_runner(ink: Ink, c: Ctx, x, y, t, run):
+def nickel_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
     with ink.at(x, y - 42, c.t * 9):
         ink.ellipse(0, 0, 42, fill=rgb("c9ccd2"), fill2=rgb("8a8e98"), ink=4, shade=0.5)
         ink.ellipse(0, 0, 33, fill=(0, 0, 0, 0), ink=2.5, shade=0, ink_col=rgb("6a6e78"))
@@ -94,7 +94,7 @@ def nickel_runner(ink: Ink, c: Ctx, x, y, t, run):
     rig.mouth(ink, x, y - 30, 18, 0.4)
 
 
-def toadstool_runner(ink: Ink, c: Ctx, x, y, t, run):
+def toadstool_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
     with ink.at(x, y):
         _legs(ink, c, -16, run, shoe=rgb("4a2e20"))
     with ink.at(x, y - 40, 0.1 * math.sin(c.t * 10)):
@@ -108,14 +108,14 @@ def toadstool_runner(ink: Ink, c: Ctx, x, y, t, run):
 
 # ---------------------------------------------------------------- flyers (centred at x, y)
 
-def quaver_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def quaver_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     with ink.at(x, y, 0.2 * math.sin(c.t * 6)):
         _wings(ink, c, 0, -8, 0.9, rgb("2a2420"))
         rig.note(ink, 0, 18, 2.2, INK)
         _eyes(ink, -4, 14, 0.55)
 
 
-def imp_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def imp_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     ang = math.atan2(0.0, vx)
     with ink.at(x, y):
         for k in range(3):
@@ -129,7 +129,7 @@ def imp_flyer(ink: Ink, c: Ctx, x, y, t, vx):
         rig.mouth(ink, 0, 12, 22, 0.55)
 
 
-def puff_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def puff_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     with ink.at(x, y):
         with ink.outlined(4):
             for px, py, r in ((-22, 4, 22), (0, -8, 28), (22, 4, 22)):
@@ -142,7 +142,7 @@ def puff_flyer(ink: Ink, c: Ctx, x, y, t, vx):
             ink.capsule(0, 30, -10, 50, 5, fill=rgb("fff07a"), ink=2.5, shade=0)
 
 
-def bat_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def bat_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     flap = math.sin(c.t * 20)
     with ink.at(x, y):
         for side in (-1, 1):
@@ -155,7 +155,7 @@ def bat_flyer(ink: Ink, c: Ctx, x, y, t, vx):
         ink.tri((6, 12), (3, 20), (0, 12), fill=WHITE, ink=1.5)
 
 
-def fish_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def fish_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     with ink.at(x, y, 0.25 * math.sin(c.t * 5)):
         _wings(ink, c, 4, -6, 0.9, rgb("8ac8e8"), span=52)
         ink.ellipse(0, 0, 40, 20, fill=rgb("5a9ad8"), fill2=rgb("3a6ea8"), ink=4, shade=0.5)
@@ -164,7 +164,7 @@ def fish_flyer(ink: Ink, c: Ctx, x, y, t, vx):
         ink.arc(-34, 6, 8, 2, 0.8, fill=INK)
 
 
-def winged45_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def winged45_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     with ink.at(x, y):
         _wings(ink, c, 0, 0, 0.9, rgb("ff8ad8"))
         with ink.at(0, 0, c.t * 12):
@@ -173,7 +173,7 @@ def winged45_flyer(ink: Ink, c: Ctx, x, y, t, vx):
         _eyes(ink, 0, -2, 0.55)
 
 
-def bee_flyer(ink: Ink, c: Ctx, x, y, t, vx):
+def bee_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
     with ink.at(x, y + 6 * math.sin(c.t * 30)):
         _wings(ink, c, 4, -18, 0.8, rgb("e8f4ff", 0.85), span=40)
         ink.ellipse(0, 0, 32, 22, fill=rgb("ffd84a"), ink=4, shade=0.4)
@@ -227,10 +227,146 @@ def mole_popper(ink: Ink, c: Ctx, x, top, ground, t):
             ink.ellipse(side * 38, 58, 14, 10, fill=rgb("f2b5c8"), ink=3, shade=0.3)
 
 
+# ---------------------------------------------------------------- sidekicks of the five extra bosses
+
+def goat_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
+    from .stages_more import goat
+    with ink.at(x, y, 0, -1.0, 1.0):
+        goat(ink, c, 0, 0, 0.75, seed * 10, black=seed < 0.45, bounce=0.0)
+    # a headbutting goat leans in
+    rig.speed_lines(ink, x + 70, y - 60, 0.0, n=2, ln=50)
+
+
+def ufo_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    with ink.at(x, y, 0.15 * math.sin(c.t * 5)):
+        ink.ellipse(0, -14, 24, 18, fill=rgb("bfe6ff", 0.85), ink=3, shade=0.3)
+        ink.ellipse(0, 0, 58, 15, fill=rgb("b8bcc4"), ink=3.5, shade=0.5)
+        for k in range(3):
+            ink.ellipse(-30 + 30 * k, 4, 5, fill=rgb("ffe37a") if (int(c.beat * 4) + k) % 2 else rgb("7a6a3a"), ink=0,
+                        shade=0)
+        rig.eye(ink, -6, -16, 5, 8, (-0.8, 0.4), 0.0)
+        rig.eye(ink, 6, -16, 5, 8, (-0.8, 0.4), 0.0)
+
+
+def babyjelly_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    from .stages_more import hanging_jelly
+    with ink.at(x, y - 70):
+        ink.glow(0, 70, 55, (1.0, 0.6, 0.85, 0.4), soft=26)
+        hanging_jelly(ink, c, 0, 0, 1.3, seed * 9)
+
+
+def speaker_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
+    with ink.at(x, y, 0, 0.8):
+        _legs(ink, c, -14, run, shoe=rgb("2a2024"))
+    with ink.at(x, y - 50, 0.1 * math.sin(c.t * 12), 0.8):
+        ink.box(0, 0, 34, 46, 6, fill=rgb("2a2430"), ink=4, shade=0.3)
+        ink.ellipse(0, 12, 22 * (1 + 0.2 * c.sub), fill=rgb("4a4450"), ink=3, shade=0.4)
+        ink.ellipse(0, -26, 9, fill=rgb("4a4450"), ink=2.5, shade=0.4)
+        _eyes(ink, 0, -10, 0.55)
+
+
+def smiley_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    with ink.at(x, y, 0.3 * math.sin(c.t * 4)):
+        _wings(ink, c, 0, 0, 0.9, rgb("fffaf0"))
+        ink.ellipse(0, 0, 34, fill=rgb("ffe02a"), ink=4, shade=0.4)
+        ink.ellipse(-12, -8, 5, 9, fill=INK, ink=0, shade=0)
+        ink.ellipse(12, -8, 5, 9, fill=INK, ink=0, shade=0)
+        ink.arc(0, 2, 20, 4, 1.1, fill=INK)
+
+
+def goon_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
+    """An 8-bit henchman in a fedora, two frames of walk."""
+    p = 5
+    frame = int(run * 2) % 2
+    rows = ["..HHHH..", ".HHHHHH.", "..FFFF..", "..FEFE..", "..FFFF..", ".SSSSSS.", "SSSSSSSS", ".SSSSSS.",
+            ".SS..SS." if frame else "SS....SS", "BB....BB" if frame else ".BB..BB."]
+    cols = {"H": rgb("2a2632"), "F": rgb("f2c8a0"), "E": INK, "S": rgb("4a4a5a"), "B": rgb("1e1612")}
+    for j, row in enumerate(rows):
+        for i, ch in enumerate(row):
+            if ch in cols:
+                ink.box(x + (i - 3.5) * p * 2, y - (len(rows) - j) * p * 2 + p, p, p, 0, fill=cols[ch], ink=1.5, shade=0,
+                        boil=0.2)
+
+
+def coin_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    with ink.at(x, y):
+        _wings(ink, c, 0, 0, 0.8, rgb("fffaf0"))
+        with ink.at(0, 0, 0, abs(math.cos(c.t * 8)) * 0.8 + 0.2, 1.0):
+            ink.ellipse(0, 0, 26, 30, fill=rgb("ffd84a"), ink=4, shade=0.5)
+            ink.box(0, 0, 5, 16, 2, fill=rgb("e0a020"), ink=0, shade=0)
+
+
+def popcorn_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5):
+    with ink.at(x, y, 0, 0.8):
+        _legs(ink, c, -14, run, shoe=rgb("5e3320"))
+    with ink.at(x, y - 48, 0.1 * math.sin(c.t * 12), 0.8):
+        with ink.outlined(4):
+            ink.tri((-34, -40), (34, -40), (22, 34), fill=rgb("f6efe0"), ink=0, rnd=6)
+            ink.tri((-34, -40), (-22, 34), (22, 34), fill=rgb("f6efe0"), ink=0, rnd=6)
+        for k in range(3):
+            ink.box(-20 + 20 * k, -2, 5, 34, 2, fill=rgb("d9433a"), ink=0, shade=0)
+        for k in range(6):
+            ink.ellipse(-28 + 11 * k, -46 - 8 * (k % 2), 11, fill=rgb("fff6c0"), ink=2, shade=0.2)
+        _eyes(ink, 0, -16, 0.55)
+
+
+def reel_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    with ink.at(x, y):
+        _wings(ink, c, 0, 0, 0.9, rgb("fffaf0"))
+        with ink.at(0, 0, c.t * 10):
+            ink.ellipse(0, 0, 30, fill=rgb("c0c4cc"), ink=4, shade=0.4)
+            for j in range(4):
+                a = j * math.pi / 2
+                ink.ellipse(math.cos(a) * 15, math.sin(a) * 15, 7, fill=rgb("22222a"), ink=0, shade=0)
+        _eyes(ink, 0, -4, 0.5)
+
+
+# ---------------------------------------------------------------- the side villain: a cheeky mate-soda bottle
+
+def mate_runner(ink: Ink, c: Ctx, x, y, t, run, seed=0.5, prop=False):
+    """A lanky amber bottle of caffeinated mate soda with a tilted crown cap for a hat and leafy hair.
+    It turns up in everyone's fight (a parody mascot, not the real one)."""
+    if prop is False:  # on the floor it comes at you sideways, cap first, skidding along on its back
+        with ink.at(x, y - 30, -math.pi / 2 + 0.1 * math.sin(c.t * 14), 0.62):
+            mate_runner(ink, c, 0, -10, t, run, seed, prop=None)
+        rig.speed_lines(ink, x + 80, y - 30, 0.0, n=3, ln=60)
+        return
+    with ink.at(x, y, 0.12 * math.sin(c.t * 11)):
+        with ink.outlined(4):
+            ink.capsule(0, 60, 0, -30, 30, fill=rgb("c87a2a", 0.95), ink=0, shade=0.4)
+            ink.capsule(0, -30, 0, -78, 12, fill=rgb("c87a2a", 0.95), ink=0, shade=0.4)
+        ink.box(0, 20, 30, 26, 6, fill=rgb("f6efd0"), ink=3, shade=0.2)
+        ink.bez(-26, 34, 0, 22, 26, 34, 3, fill=rgb("3a8a3a"), ink=0, shade=0)
+        ink.box(-12, -10, 4, 30, 2, fill=(1, 1, 1, 0.4), ink=0, shade=0)
+        for k in range(3):    # leafy hair
+            ink.ellipse(-12 + 12 * k, -96, 7, 13, fill=rgb("4aa84a"), ink=2, shade=0.2, rot=(k - 1) * 0.6)
+        with ink.at(4, -84, -0.35):
+            ink.box(0, 0, 16, 6, 2, fill=rgb("e8c43a"), ink=2.5, shade=0.3)
+            for k in range(5):
+                ink.tri((-16 + 8 * k, 6), (-12 + 8 * k, 12), (-8 + 8 * k, 6), fill=rgb("e8c43a"), ink=1.5)
+        _eyes(ink, 0, 14, 0.62, angry=0.9)
+        rig.mouth(ink, 0, 34, 20, 0.5)
+        if prop is True:
+            with ink.at(0, -110):
+                ink.capsule(0, 0, 0, 14, 3, fill=INK, ink=0, shade=0)
+                bl = abs(math.sin(c.t * 40))
+                ink.ellipse(0, -2, 46 * bl + 6, 6, fill=rgb("c8372d"), ink=2.5, shade=0.2)
+
+
+def mate_flyer(ink: Ink, c: Ctx, x, y, t, vx, seed=0.5):
+    mate_runner(ink, c, x, y, t, 0.0, seed, prop=True)
+
+
+def is_mate(s) -> bool:
+    return s.kind in ("runner", "flyer") and (s.seed * 7.31) % 1.0 < 0.22
+
+
 RUNNERS = {"gramophone": record_runner, "kettle": teacup_runner, "octopus": crab_runner, "jukebox": nickel_runner,
-           "oak": toadstool_runner}
+           "oak": toadstool_runner, "jelly": goat_runner, "hamhock": goat_runner, "lava": speaker_runner,
+           "don": goon_runner, "projectionist": popcorn_runner}
 FLYERS = {"gramophone": quaver_flyer, "sun": imp_flyer, "cloud": puff_flyer, "organ": bat_flyer, "octopus": fish_flyer,
-          "jukebox": winged45_flyer, "oak": bee_flyer}
+          "jukebox": winged45_flyer, "oak": bee_flyer, "jelly": babyjelly_flyer, "hamhock": ufo_flyer,
+          "lava": smiley_flyer, "don": coin_flyer, "projectionist": reel_flyer}
 POPPERS = {"kettle": mouse_popper, "organ": hand_popper, "oak": mole_popper}
 
 
@@ -241,13 +377,13 @@ def draw(ink: Ink, c: Ctx, boss: str, s, x: float, y: float, tt: float, ground: 
     """One sidekick at (x, y) tt seconds after it set off (the shot it is, in combat terms)."""
     k = SCALE
     if s.kind == "runner":
-        fn = RUNNERS.get(boss, record_runner)
+        fn = mate_runner if is_mate(s) else RUNNERS.get(boss, record_runner)
         with ink.at(x, ground, 0, k):
-            fn(ink, c, 0, 0, tt, (tt * 3.2) % 1.0)
+            fn(ink, c, 0, 0, tt, (tt * 3.2) % 1.0, seed=s.seed)
     elif s.kind == "flyer":
-        fn = FLYERS.get(boss, quaver_flyer)
+        fn = mate_flyer if is_mate(s) else FLYERS.get(boss, quaver_flyer)
         with ink.at(x, y, 0, k):
-            fn(ink, c, 0, 0, tt, vx)
+            fn(ink, c, 0, 0, tt, vx, seed=s.seed)
     else:
         warn = tt < s.p1 - 0.05
         if warn:              # the floor cracks and shakes before it bursts out
@@ -276,9 +412,9 @@ def popped(ink: Ink, c: Ctx, boss: str, s, x: float, y: float, q: float, ground:
         yy = (y if s.kind != "runner" else ground - 50) - 260 * math.sin(math.pi * k * 0.7) + 500 * k * k
         with ink.at(x + 160 * k, yy, 9 * k, SCALE):
             if s.kind == "runner":
-                RUNNERS.get(boss, record_runner)(ink, c, 0, 50, 0.0, 0.0)
+                (mate_runner if is_mate(s) else RUNNERS.get(boss, record_runner))(ink, c, 0, 50, 0.0, 0.0, seed=s.seed)
             elif s.kind == "flyer":
-                FLYERS.get(boss, quaver_flyer)(ink, c, 0, 0, 0.0, -1.0)
+                (mate_flyer if is_mate(s) else FLYERS.get(boss, quaver_flyer))(ink, c, 0, 0, 0.0, -1.0, seed=s.seed)
             else:
                 POPPERS.get(boss, mole_popper)(ink, c, 0, -60, 0, 0.0)
         rig.dazed_stars(ink, x + 160 * k, yy - 70, 40, c.t, n=3)

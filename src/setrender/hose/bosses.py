@@ -627,7 +627,7 @@ def projectile(ink: Ink, kind: str, x, y, s, pink: bool, t: float, seed: float, 
                 ink.ellipse(0, 6, 18, 22, fill=col or rgb("b06a32"), ink=4, shade=0.5)
                 ink.ellipse(0, -12, 22, 12, fill=rgb("6a4a2a"), ink=4, shade=0.4)
                 ink.capsule(0, -24, 4, -34, 3, fill=rgb("6a4a2a"), ink=2)
-        else:
+        elif not projectile_more(ink, kind, col, t, seed, ang):
             ink.ellipse(0, 0, 24, fill=col or WHITE, ink=4, shade=0.4)
 
 
@@ -636,3 +636,10 @@ def ring_wave(ink: Ink, x, y, u: float):
     for k in range(3):
         r = 40 + 60 * u + k * 26
         ink.arc(x + k * 20, y, r, 5 - k, 0.8, rot=math.pi / 2, fill=(*INK[:3], 1 - u * 0.5))
+
+
+# the five extra bosses (thirteen in all)
+from .bosses_more import ROSTER_MORE, projectile_more  # noqa: E402
+
+ROSTER = ROSTER + ROSTER_MORE
+BY_NAME = {b["name"]: b for b in ROSTER}
