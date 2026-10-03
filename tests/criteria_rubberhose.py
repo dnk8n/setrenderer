@@ -519,23 +519,26 @@ def _r15(reel_path: Path, set_audio: Path):
     centres = np.array([c["t0"] + c["dur"] / 2 for c in clips[1:-1]])
     gaps = np.diff(centres)
     even = bool(len(gaps) and np.all(np.abs(gaps - gaps.mean()) <= 0.5 * gaps.mean()))
-    # each clip's sound is the set's own sound at that time
+    # each clip's sound is the set's own sound at that time; compared at 48 kHz so the alignment is exact to the
+    # sample (at 8 kHz a sub-sample offset alone pulled hi-hat-heavy passages down to r = 0.89)
+    sr = 48000
     def pcm(args):
-        raw = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", *args, "-ac", "1", "-ar", "8000", "-f", "f32le", "-"],
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", *args, "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
                              check=True, capture_output=True).stdout
         return np.frombuffer(raw, np.float32)
     rr = pcm(["-i", str(reel_path)])
     corr, off = [], 0.0
+    mg = sr // 10
     for c in clips:
-        a = rr[int((off + 0.35) * 8000): int((off + c["dur"] - 0.35) * 8000)]
+        a = rr[int((off + 0.35) * sr): int((off + c["dur"] - 0.35) * sr)]
         b = pcm(["-ss", f"{c['t0'] + 0.35:.4f}", "-t", f"{c['dur'] - 0.7:.4f}", "-i", str(set_audio)])
-        k = min(len(a), len(b)) - 1600
+        k = min(len(a), len(b)) - 2 * mg
         # best match within ±100 ms (the AAC encoder's priming delay shifts the decoded audio slightly)
         def r_at(d):
-            return float(np.corrcoef(a[800 + d: 800 + d + k], b[800: 800 + k])[0, 1])
+            return float(np.corrcoef(a[mg + d: mg + d + k], b[mg: mg + k])[0, 1])
         if k > 100:
-            coarse = max(range(-800, 801, 8), key=r_at)
-            corr.append(max(r_at(d) for d in range(max(-800, coarse - 8), min(800, coarse + 8) + 1)))
+            coarse = max(range(-mg, mg + 1, 48), key=r_at)
+            corr.append(max(r_at(d) for d in range(max(-mg, coarse - 48), min(mg, coarse + 48) + 1)))
         else:
             corr.append(0.0)
         off += c["dur"]
