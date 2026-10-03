@@ -173,20 +173,101 @@ def vaudeville(ink: Ink, c: Ctx, u: float, cast, hero_pose, xs):
     stages.audience(ink, c, cheer=0.4 * c.energy)
 
 
-def hud(ink: Ink, c: Ctx, bpm: float, cards: int, alpha: float = 1.0):
-    """Bottom-left card box: tempo instead of hit points, and five super cards that fill with parries."""
+def hud(ink: Ink, c: Ctx, bpm: float, states: list[dict], alpha: float = 1.0):
+    """Bottom corners, one panel per hero: their head, three hearts (HP) and five super cards that
+    fill with damage dealt and parries; the tempo sits in the middle."""
     with ink.at(0, 0, fade=1 - alpha):
-        ink.box(140, 1010, 92, 34, 10, fill=rgb("f6efe0"), ink=4, shade=0.2)
-        lettering.words(ink, f"BPM {int(round(bpm))}", 140, 1012, 32, fill=rgb("3a2416"), shadow=None, outline=0.0,
-                        weight=6)
-        for k in range(5):
-            x = 270 + k * 44
-            full = k < cards
-            pop = 1.0 + (0.15 * c.squash if full and k == cards - 1 else 0.0)
-            with ink.at(x, 1010, 0.06 * math.sin(c.td * 2 + k), pop):
-                ink.box(0, 0, 17, 26, 4, fill=rgb("f6efe0") if full else rgb("6a5a4a", 0.6), ink=3, shade=0.2)
+        ink.box(W / 2, 1036, 96, 30, 10, fill=rgb("f6efe0"), ink=4, shade=0.2)
+        lettering.words(ink, f"BPM {int(round(bpm))}", W / 2, 1038, 30, fill=rgb("3a2416"), shadow=None,
+                        outline=0.0, weight=6)
+        for k, st in enumerate(states):
+            sgn = 1 if k == 0 else -1
+            x0 = 62 if k == 0 else W - 62
+            with ink.at(x0 + sgn * 210, 1014, -0.012 * sgn):
+                with ink.outlined(5):
+                    ink.box(0, 0, 262, 44, 20, fill=rgb("f6efe0"), fill2=rgb("e6dcc4"), ink=0, shade=0.3)
+                ink.box(-sgn * 112, 0, 2, 34, 1, fill=rgb("3a2416", 0.4), ink=0, shade=0)
+                ink.box(sgn * 30, 0, 2, 34, 1, fill=rgb("3a2416", 0.4), ink=0, shade=0)
+            heroes.portrait(ink, st["kind"], x0, 1006, 0.5, c.td, c.beat, down=st["down"])
+            for j in range(3):
+                x = x0 + sgn * (98 + j * 48)
+                full = j < st["hp"]
+                last = full and st["hp"] == 1
+                lost = (not full) and j == st["hp"] and 0 <= st["hit_age"] < 0.6
+                if lost:      # the heart that just went pops up and fades
+                    q = st["hit_age"] / 0.6
+                    ink.heart(x, 1008 - 60 * q, 22 * (1 + 0.5 * q), fill=rgb("d9433a", 1 - q), ink=3 * (1 - q),
+                              rot=0.4 * q * sgn)
                 if full:
-                    ink.heart(0, 2, 10, fill=rgb("d9433a"), ink=0)
+                    pop = 1.0 + (0.25 * c.squash if last else 0.0)
+                    blink = last and (c.beat % 1.0) < 0.35
+                    ink.heart(x, 1012, 23 * pop, fill=rgb("fff6e8") if blink else rgb("d9433a"), ink=3.5)
+                elif st["down"]:
+                    ink.heart(x, 1012, 20, fill=rgb("8a8478", 0.5), ink=2.5)
+                else:
+                    ink.heart(x, 1012, 20, fill=rgb("3a2416", 0.18), ink=2.5)
+            for j in range(5):
+                x = x0 + sgn * (262 + j * 38)
+                fill = min(1.0, max(0.0, st["meter"] - j))
+                whole = fill >= 1.0
+                pop = 1.0 + (0.18 * c.squash if whole and j == int(st["meter"]) - 1 else 0.0)
+                with ink.at(x, 1014, 0.05 * math.sin(c.td * 2 + j) * sgn, pop):
+                    ink.box(0, 0, 15, 24, 4, fill=rgb("fffaf0") if whole else rgb("3a2e28"), ink=3, shade=0.2)
+                    if whole:
+                        ink.heart(0, 2, 8.5, fill=rgb("d9433a"), ink=0)
+                    elif fill > 0:
+                        hh = 21 * fill
+                        ink.box(0, 21 - hh, 12, hh, 2, fill=rgb("e8b14a"), ink=0, shade=0)
+
+
+def take_card(ink: Ink, c: Ctx, n: int, u: float, beat_u: float, progress: float, boss_face, cast):
+    """A lost take: the clapperboard snaps shut on the downbeat for the next TAKE, and a strip of film
+    shows how far into the fight they got (three frames, one per phase) with the boss laughing at the
+    far end."""
+    ink.rays(W / 2, 420, 30, rgb("6a4a32"), rgb("4a3020"), phase=c.t * 0.05, mat=WATER)
+    ink.rings(W / 2, 420, 110, rgb("fff0c0", 0.0), rgb("fff0c0", 0.08), phase=-c.t * 0.2, duty=0.8)
+    deco_frame(ink, col=rgb("e8b14a"))
+    # the clapperboard
+    cx, cy = W / 2, 470
+    with ink.at(cx, cy, 0.03 * math.sin(c.td * 2)):
+        with ink.outlined(7):
+            ink.box(0, 0, 330, 170, 16, fill=rgb("2a2622"), fill2=rgb("1a1714"), ink=0, shade=0.4)
+        for yy in (-120, 125):
+            ink.capsule(-300, yy, 300, yy, 2.0, fill=rgb("f2efe6", 0.6), ink=0, shade=0, boil=0.6)
+        ink.capsule(0, 125, 0, 160, 2.0, fill=rgb("f2efe6", 0.6), ink=0, shade=0, boil=0.6)
+        lettering.words(ink, f"TAKE {n}", 0, 20, 120, fill=rgb("f6f2e8"), shadow=None, outline=0.0, weight=9,
+                        wobble=0.6, t=c.td)
+        clap = min(1.0, beat_u)            # swings down over the first beat and slaps on the second
+        ang = -0.55 * (1 - clap ** 2.2) + (0.05 * math.sin((beat_u - 1) * 25) * math.exp(-(beat_u - 1) * 6)
+                                           if beat_u > 1 else 0.0)
+        with ink.at(-330, -185, ang):
+            with ink.outlined(6):
+                ink.box(330, -24, 330, 26, 6, fill=rgb("f2efe6"), ink=0, shade=0.3)
+            for k in range(7):
+                x = 40 + k * 95
+                ink.tri((x, 2), (x + 48, -50), (x + 92, -50), fill=rgb("2a2622"), ink=0)
+                ink.tri((x, 2), (x + 92, -50), (x + 44, 2), fill=rgb("2a2622"), ink=0)
+        if 1.0 <= beat_u < 1.6:
+            rig.impact(ink, -300, -200, 120, (beat_u - 1.0) / 0.6)
+    # the strip of film with the progress line
+    x0, x1, y = 420.0, 1500.0, 820.0
+    with ink.outlined(5):
+        ink.box((x0 + x1) / 2, y, (x1 - x0) / 2 + 40, 62, 8, fill=rgb("1e1a16"), ink=0, shade=0)
+    for k in range(28):
+        xx = x0 - 20 + k * (x1 - x0 + 40) / 27
+        for sy in (-46, 46):
+            ink.box(xx, y + sy, 9, 7, 2, fill=rgb("f2e6c8"), ink=0, shade=0)
+    for k in range(3):
+        fx0 = x0 + k * (x1 - x0) / 3
+        fx1 = fx0 + (x1 - x0) / 3
+        ink.box((fx0 + fx1) / 2, y, (fx1 - fx0) / 2 - 8, 32, 4, fill=rgb("e8d8b0"), ink=0, shade=0.2)
+    grow = min(1.0, u * 2.5)
+    px = x0 + (x1 - x0) * progress * grow
+    ink.capsule(x0 + 8, y, max(x0 + 9, px), y, 9, fill=rgb("c8372d"), ink=2.5, shade=0)
+    for k, kind in enumerate(cast):
+        heroes.ghost(ink, kind, px - 40 + k * 70, y - 120 - 12 * math.sin(c.t * 3 + k), c.t, c.beat, 0.42)
+    if boss_face is not None:
+        boss_face(ink, x1 + 120, y - 10, 0.55)
 
 
 def card_text(ink: Ink, c: Ctx, text: str, kind: str, u: float, sub: str | None = None):

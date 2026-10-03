@@ -125,6 +125,12 @@ def mouth(ink: Ink, x, y, w, open_: float, smile: float = 1.0, teeth: bool = Tru
         ink.arc(x + w * 0.6, y - 4, 5, 2.0, 1.0, rot=0.9, fill=INK)
 
 
+def stroke(ink: Ink, pts, w: float = 3.0, col=INK):
+    """A plain ink stroke through points (cracks, scratches)."""
+    for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
+        ink.capsule(x0, y0, x1, y1, w * 0.5, fill=col, ink=0.0, shade=0.0)
+
+
 def blush(ink: Ink, x, y, r):
     ink.ellipse(x, y, r, r * 0.6, fill=BLUSH, ink=0, shade=0, soft=4.0, boil=0.0)
 

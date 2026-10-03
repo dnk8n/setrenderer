@@ -37,7 +37,7 @@ class Pose:
     facing: float = 1.0
     lift: float = 0.0         # px above the ground
     run: float | None = None  # run-cycle phase, None = standing
-    action: str = "dance"     # dance | shoot | jump | parry | wave | cheer | walk | sit | bow
+    action: str = "dance"     # dance | shoot | jump | parry | wave | cheer | walk | sit | bow | hurt | ex
     aim: float = 0.0          # shooting angle (radians, 0 = facing direction)
     look: tuple = (0.6, 0.0)
     blink: float = 0.0
@@ -133,7 +133,7 @@ def draw(ink: Ink, kind: str, x: float, y: float, p: Pose, s: float = 1.0):
     ph = p.beat % 1.0
     sq = rig.bounce(ph) * (0.5 + 0.5 * p.energy)
     en = 0.5 + p.energy
-    air = p.lift > 4 or p.action in ("jump", "parry")
+    air = p.lift > 4 or p.action in ("jump", "parry", "hurt")
     sx_body, sy_body = 1 + 0.10 * sq, 1 - 0.12 * sq
     spin = p.spin * f if p.action == "parry" else 0.0
     with ink.at(x, y - p.lift - (130 * s if spin else 0), spin, s), ink.at(0, 130 if spin else 0):
@@ -211,6 +211,21 @@ def _arms(p: Pose, ph: float, sq: float, en: float, air: bool) -> dict:
     out = {}
     for side in (-1, 1):
         front = side * f > 0
+        if p.action == "hurt":            # flung back by a hit: hands up, fingers spread
+            ang = -math.pi / 2 + side * 1.15 + 0.25 * math.sin(p.t * 30)
+            hx, hy = side * 26 + math.cos(ang) * 72, sh_y + math.sin(ang) * 72
+            out[side] = (hx, hy, ang, "open", 0.3 * side)
+            continue
+        if p.action == "ex" and front:    # both hands thrust forward after an EX shot
+            ang = 0.0 if f > 0 else math.pi
+            hx, hy = side * 26 + math.cos(ang) * 78, sh_y + 6
+            out[side] = (hx, hy, ang, "open", 0.05 * side)
+            continue
+        if p.action == "ex":
+            ang = 0.25 if f > 0 else math.pi - 0.25
+            hx, hy = side * 20 + math.cos(ang) * 70, sh_y + 16
+            out[side] = (hx, hy, ang, "open", 0.05 * side)
+            continue
         if p.action == "shoot" and front:
             a = p.aim
             ang = (a if f > 0 else math.pi - a)
@@ -253,3 +268,84 @@ def _arms(p: Pose, ph: float, sq: float, en: float, air: bool) -> dict:
         hx, hy = side * 26 + math.cos(ang) * r, sh_y + math.sin(ang) * r
         out[side] = (hx, hy, ang, gl, 0.28 * side * (1 if sw > 0 else -1))
     return out
+
+
+GHOST = rgb("fbf4ff")
+
+
+def ghost(ink: Ink, kind: str, x: float, y: float, t: float, beat: float, s: float = 1.0, alpha: float = 1.0):
+    """A downed hero's ghost floating up: pale, haloed, little wings beating, glowing pink because the
+    partner can parry it back to life."""
+    flap = math.sin(beat * math.pi * 2)
+    with ink.at(x, y, 0.12 * math.sin(t * 3), s, fade=1 - 0.8 * alpha):
+        ink.glow(0, 10, 130, (1.0, 0.45, 0.75, 0.32), soft=55)
+        ink.bez(-34, 40, 20 + 30 * math.sin(t * 5), 130, 36 * math.sin(t * 4), 210, 46, 5, fill=GHOST, ink=3, shade=0.2)
+        for side in (-1, 1):
+            with ink.at(side * 70, -10, side * (0.5 + 0.35 * flap)):
+                ink.ellipse(side * 34, 0, 40, 16, fill=GHOST, ink=3, shade=0.2)
+        with ink.at(0, 0, 0, 1.0, fade=0.45):
+            _head(ink, kind, Pose(t=t, beat=beat, blink=1.0, mouth=0.15, look=(0.0, -1.0)), 0.0)
+        ink.ellipse(0, -8, 74, 78, fill=(1.0, 0.95, 1.0, 0.32), ink=0, shade=0)
+        ink.ellipse(0, -112, 46, 11, fill=(0, 0, 0, 0), ink=5, shade=0, ink_col=rgb("f0c040"))
+
+
+def lying(ink: Ink, kind: str, x: float, y: float, p: Pose, s: float = 1.0):
+    """A knocked-out hero flat on the floor (eyes shut, stars going round)."""
+    p2 = Pose(**{**p.__dict__})
+    p2.blink, p2.mouth, p2.action, p2.lift, p2.run, p2.spin = 1.0, 0.05, "dance", 0.0, None, 0.0
+    p2.energy = 0.0
+    with ink.at(x, y - 38 * s, 0, 1.0, 0.82):
+        with ink.at(0, 0, -math.pi / 2 * p.facing):
+            draw(ink, kind, 0, 125 * s, p2, s)
+    rig.dazed_stars(ink, x - 110 * p.facing * s, y - 90 * s, 46 * s, p.t, n=3)
+
+
+def tomb(ink: Ink, x: float, y: float, t: float, s: float = 1.0):
+    """Where a hero fell and nobody parried their ghost back: a little headstone till the next take."""
+    from . import lettering
+    with ink.at(x, y, 0.04 * math.sin(t * 2), s):
+        with ink.outlined(4):
+            ink.box(0, -60, 46, 60, 22, fill=rgb("b8b0a4"), fill2=rgb("8a8478"), ink=0, shade=0.5)
+        ink.box(0, -2, 64, 8, 4, fill=rgb("6a8a4a"), ink=3, shade=0.3)
+        lettering.words(ink, "RIP", 0, -74, 26, fill=rgb("3a3430"), shadow=None, outline=0.0, weight=5)
+        ink.ellipse(-30, -8, 10, 7, fill=rgb("f06a6a"), ink=2, shade=0.3)
+
+
+def portrait(ink: Ink, kind: str, x: float, y: float, s: float, t: float, beat: float, down: bool = False):
+    """The hero's head for the HUD."""
+    with ink.at(x, y, 0.06 * math.sin(beat * math.pi), s):
+        _head(ink, kind, Pose(t=t, beat=beat, blink=1.0 if down else 0.0, mouth=0.05 if down else 0.35,
+                              look=(0.3, 0.0)), 0.0)
+
+
+def ex_shot(ink: Ink, kind: str, x: float, y: float, t: float, s: float = 1.0):
+    """The EX attack each hero throws for one card: a spinning peppercorn bomb, a slice of rye, a salt
+    crystal, a lightning bolt or a sugar cube."""
+    with ink.at(x, y, t * 12 if kind != "bulb" else 0.0, s):
+        ink.glow(0, 0, 70, (1.0, 0.85, 0.5, 0.35), soft=40)
+        if kind == "pepper":
+            ink.ellipse(0, 0, 34, fill=rgb("3a2a22"), ink=4, shade=0.6)
+            ink.ellipse(-10, -12, 9, 6, fill=(1, 1, 1, 0.6), ink=0, shade=0)
+            for k in range(5):
+                a = k * 1.26
+                ink.arc(0, 0, 22, 2, 0.4, rot=a, fill=rgb("1e1410"))
+        elif kind == "loaf":
+            with ink.outlined(4):
+                ink.box(0, 0, 40, 34, 18, fill=rgb("4a2a1c"), ink=0, shade=0.4)
+            ink.box(0, 2, 32, 26, 14, fill=rgb("8a6040"), ink=0, shade=0.2)
+            for k in range(6):
+                ink.ellipse(-20 + k * 8, -8 + 10 * math.sin(k * 2.0), 3, 2, fill=rgb("e6d3a8"), ink=0, shade=0)
+        elif kind == "salt":
+            ink.box(0, 0, 30, 30, 4, fill=rgb("f4f8fc"), ink=4, shade=0.5, rot=0.785)
+            ink.box(-6, -6, 10, 10, 2, fill=(1, 1, 1, 0.8), ink=0, shade=0, rot=0.785)
+        elif kind == "bulb":
+            pts = [(-30, -40), (8, -6), (-12, 4), (30, 42)]
+            for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
+                ink.capsule(x0, y0, x1, y1, 12, 9, fill=rgb("fff07a"), ink=4, shade=0)
+        else:
+            ink.box(0, 0, 28, 28, 6, fill=rgb("fff4f8"), ink=4, shade=0.4)
+            for k in range(4):
+                ink.ellipse(-12 + 8 * k, -10 + 6 * (k % 2), 3, fill=rgb("c76a9a"), ink=0, shade=0)
+
+
+SUPER = {"pepper": "sneeze", "salt": "sneeze", "loaf": "giant", "sugar": "giant", "bulb": "flash"}

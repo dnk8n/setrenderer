@@ -175,7 +175,7 @@ def gramophone(ink: Ink, c: Ctx, bx=1420.0, by=905.0):
         ink.rings(-20, -300, 9, rgb("3a3330"), rgb("1e1816"), radius=150, phase=c.t * 2)
         ink.ellipse(-20, -300, 34, 9, fill=c.col(RED), ink=3, shade=0)
         if c.dmg > 0.55:      # a cracked record
-            ink.line([(-140, -296), (-100, -306), (-80, -292), (-40, -304)], 3.0)
+            rig.stroke(ink, [(-140, -296), (-100, -306), (-80, -292), (-40, -304)], 3.0)
         if c.dmg > 0.75:      # a spring sprung out of the cabinet
             for k in range(5):
                 ink.arc(150 + 14 * k, -120 - 22 * k + 6 * math.sin(c.td * 9 + k), 16, 4, 1.4, rot=math.pi / 2,
@@ -215,7 +215,8 @@ def gramophone(ink: Ink, c: Ctx, bx=1420.0, by=905.0):
 
 GRAMOPHONE = {"name": "gramophone", "title": "GRAMOPHONE GUS", "stage": "ballroom", "sky": False,
               "emit": (1180, 390), "draw": gramophone, "shot": "note",
-              "patterns": [["aimed", "aimed", "arc"], ["aimed", "arc", "wave", "ring"], ["spread", "arc", "wave", "ring"]]}
+              "patterns": [["aimed", "aimed", "arc"], ["aimed", "arc", "wave", "ring"], ["spread", "arc", "wave", "ring"]],
+    "face": (1220, 330, 120), "top": (1240, 120)}
 
 
 # ---------------------------------------------------------------- 2. the sun
@@ -262,7 +263,8 @@ def sun(ink: Ink, c: Ctx, bx=1440.0, by=430.0):
 
 
 SUN = {"name": "sun", "title": "SUNNY SID", "stage": "sky", "sky": True, "emit": (1300, 470), "draw": sun,
-       "shot": "fireball", "patterns": [["aimed", "wave"], ["spread", "wave", "aimed"], ["spread", "rain", "wave"]]}
+       "shot": "fireball", "patterns": [["aimed", "wave"], ["spread", "wave", "aimed"], ["spread", "rain", "wave"]],
+    "face": (1440, 445, 190), "top": (1440, 190)}
 
 
 # ---------------------------------------------------------------- 3. the storm cloud
@@ -310,7 +312,8 @@ def cloud(ink: Ink, c: Ctx, bx=1420.0, by=360.0):
 
 
 CLOUD = {"name": "cloud", "title": "THUNDERING THELMA", "stage": "storm", "sky": True, "emit": (1260, 420),
-         "draw": cloud, "shot": "bolt", "patterns": [["rain", "aimed"], ["rain", "aimed", "wave"], ["rain", "spread", "aimed"]]}
+         "draw": cloud, "shot": "bolt", "patterns": [["rain", "aimed"], ["rain", "aimed", "wave"], ["rain", "spread", "aimed"]],
+    "face": (1440, 385, 160), "top": (1440, 170)}
 
 
 # ---------------------------------------------------------------- 4. the kettle
@@ -365,7 +368,8 @@ def kettle(ink: Ink, c: Ctx, bx=1450.0, by=905.0):
 
 
 KETTLE = {"name": "kettle", "title": "KETTLE KATE", "stage": "kitchen", "sky": False, "emit": (1100, 520),
-          "draw": kettle, "shot": "steam", "patterns": [["aimed", "arc"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]]}
+          "draw": kettle, "shot": "steam", "patterns": [["aimed", "arc"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]],
+    "face": (1480, 655, 150), "top": (1450, 420)}
 
 
 # ---------------------------------------------------------------- 5. the pipe organ
@@ -390,7 +394,7 @@ def organ(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
             if broken:      # a bent, snapped top and a plaster
                 with ink.at(x, -430 - h, 0.5 * (1 if k % 2 else -1)):
                     ink.box(0, -30, 24, 34, 10, fill=pipe, ink=4, shade=0.5)
-                    ink.line([(-20, -60), (-6, -70), (6, -58), (20, -68)], 3.5)
+                    rig.stroke(ink, [(-20, -60), (-6, -70), (6, -58), (20, -68)], 3.5)
                 ink.box(x, -430 - h * 0.6, 30, 10, 4, fill=rgb("f2d2a6"), ink=2.5, shade=0.2, rot=0.3)
         with ink.outlined(6):
             ink.box(0, -200, 300, 200, 30, fill=wood, fill2=wood2, ink=0, shade=0.5)
@@ -414,7 +418,8 @@ def organ(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
 
 
 ORGAN = {"name": "organ", "title": "THE PHANTOM PIPES", "stage": "graveyard", "sky": False, "emit": (1300, 420),
-         "draw": organ, "shot": "ghostnote", "patterns": [["wave", "aimed"], ["wave", "arc", "aimed"], ["spread", "wave", "arc"]]}
+         "draw": organ, "shot": "ghostnote", "patterns": [["wave", "aimed"], ["wave", "arc", "aimed"], ["spread", "wave", "arc"]],
+    "face": (1450, 545, 140), "top": (1450, 300)}
 
 
 # ---------------------------------------------------------------- 6. the octopus
@@ -462,7 +467,8 @@ def octopus(ink: Ink, c: Ctx, bx=1480.0, by=800.0):
 
 
 OCTOPUS = {"name": "octopus", "title": "CAPTAIN EIGHTARMS", "stage": "sea", "sky": False, "emit": (1300, 520),
-           "draw": octopus, "shot": "ink", "patterns": [["arc", "aimed"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]]}
+           "draw": octopus, "shot": "ink", "patterns": [["arc", "aimed"], ["arc", "wave", "aimed"], ["spread", "arc", "wave"]],
+    "face": (1480, 570, 150), "top": (1490, 300)}
 
 
 # ---------------------------------------------------------------- 7. the jukebox robot
@@ -491,8 +497,8 @@ def jukebox(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
             ink.glow(0, -540 - r * 0.8, 24 + 20 * b, (col[0], col[1], col[2], 0.12 + 0.2 * b), soft=30)
         ink.ellipse(0, -530, 110, 70, fill=c.col(rgb("20304a")), ink=4, shade=0)
         if c.dmg > 0.4:     # cracked glass
-            ink.line([(-80, -580), (-30, -540), (-50, -500), (10, -470)], 2.5, col=rgb("dfe8f0"))
-            ink.line([(-30, -540), (40, -560), (90, -590)], 2.5, col=rgb("dfe8f0"))
+            rig.stroke(ink, [(-80, -580), (-30, -540), (-50, -500), (10, -470)], 2.5, col=rgb("dfe8f0"))
+            rig.stroke(ink, [(-30, -540), (40, -560), (90, -590)], 2.5, col=rgb("dfe8f0"))
         if c.dmg > 0.6 and math.sin(c.t * 23) > 0.3:     # sparks
             for k in range(4):
                 a = c.t * 11 + k * 1.6
@@ -519,7 +525,8 @@ def jukebox(ink: Ink, c: Ctx, bx=1450.0, by=905.0, bands=(0.5,) * 5):
 
 
 JUKEBOX = {"name": "jukebox", "title": "JUKEBOX JOE", "stage": "city", "sky": False, "emit": (1300, 520),
-           "draw": jukebox, "shot": "record", "patterns": [["arc", "aimed"], ["aimed", "ring", "arc"], ["spread", "ring", "arc"]]}
+           "draw": jukebox, "shot": "record", "patterns": [["arc", "aimed"], ["aimed", "ring", "arc"], ["spread", "ring", "arc"]],
+    "face": (1450, 385, 90), "top": (1450, 120)}
 
 
 # ---------------------------------------------------------------- 8. old man oak
@@ -569,7 +576,8 @@ def oak(ink: Ink, c: Ctx, bx=1480.0, by=905.0):
 
 
 OAK = {"name": "oak", "title": "OLD MAN OAK", "stage": "forest", "sky": False, "emit": (1300, 470), "draw": oak,
-       "shot": "acorn", "patterns": [["arc", "rain"], ["arc", "wave", "rain"], ["spread", "rain", "arc"]]}
+       "shot": "acorn", "patterns": [["arc", "rain"], ["arc", "wave", "rain"], ["spread", "rain", "arc"]],
+    "face": (1480, 595, 140), "top": (1480, 160)}
 
 ROSTER = [GRAMOPHONE, SUN, CLOUD, KETTLE, ORGAN, OCTOPUS, JUKEBOX, OAK]
 BY_NAME = {b["name"]: b for b in ROSTER}

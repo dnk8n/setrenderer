@@ -28,13 +28,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from setrender import cli, config, reel, scenes, verify  # noqa: E402
 from setrender.crop import music  # noqa: E402
-from setrender.hose import bosses, lettering, story  # noqa: E402
+from setrender.hose import bosses, combat, lettering, story  # noqa: E402
 from setrender.timeline import Timeline  # noqa: E402
 
 W = ROOT / "work" / "criteria-rubberhose"
 W.mkdir(parents=True, exist_ok=True)
-BIN = str(ROOT / ".venv" / "bin" / "setrender")
-SET = "/Users/dean/src/setstreamer/media/Pepper&Pumpernickl - Knisper 2026.WAV"
+# the checkout's own setrender (a worktree without its own venv runs its source with this Python)
+if (ROOT / ".venv" / "bin" / "setrender").exists():
+    BIN = [str(ROOT / ".venv" / "bin" / "setrender")]
+else:
+    BIN = [sys.executable, "-m", "setrender.cli"]
+    os.environ["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + os.environ.get("PYTHONPATH", "")
+SET = "/Users/dean/src/setstreamer/media/Pepper&Pumpernickl - Knisper 2026 (trimmed).WAV"
 results: dict[str, dict] = {}
 
 
@@ -48,7 +53,7 @@ def sh(cmd, **kw):
 
 
 def render(audio, out, *extra):
-    sh([BIN, "render", str(audio), "-t", "rubberhose", "-o", str(out), "--cpu", "4.5", *extra])
+    sh([*BIN, "render", str(audio), "-t", "rubberhose", "-o", str(out), "--cpu", "4.5", *extra])
     return out
 
 
@@ -124,7 +129,7 @@ def main():
         _r2(fx)
     if want("R3", "R12"):
         _r3_r12(fx, set_audio)
-    if want("R6", "R7", "R8", "R9", "R10", "R11"):
+    if want("R6", "R7", "R8", "R9", "R10", "R11", "R16", "R17", "R18"):
         _plan_checks(set_audio)
     if want("R13"):
         _r13(fx)
@@ -132,7 +137,7 @@ def main():
         _r5_r14(full, set_audio)
     if want("R15"):
         _r15(reel_path, set_audio)
-    order = [f"R{k}" for k in range(1, 16)]
+    order = [f"R{k}" for k in range(1, 19)]
     report = {k: results[k] for k in order if k in results}
     (W / ("report.json" if only is None else "report-partial.json")).write_text(json.dumps(report, indent=2, default=str))
     npass = sum(r["pass"] for r in report.values())
@@ -219,9 +224,15 @@ def _plan_checks(set_audio):
     pool = [b for b in (sc.cfg.get("bosses") or [])]
     seen = sorted({x.boss for x in P.acts})
     no_repeat = all(x.boss != y.boss for x, y in zip(P.acts[:-1], P.acts[1:]))
-    rec("R7", all(5 <= v <= 15 for v in lens) and acts_ok and three and has_cards and set(pool) <= set(seen) and no_repeat,
-        acts=len(P.acts), minutes=[round(v, 1) for v in lens], on_downbeats=acts_ok, three_phases=three,
-        ready_go_ko_cards=has_cards, bosses_seen=seen, no_back_to_back=no_repeat)
+    kos = [c for c in P.cards if c.kind == "ko"]
+    ko_per_boss = {b: sum(1 for x in P.acts if x.boss == b and any(abs(c.t0 - x.ko) < 1e-6 for c in kos)) for b in pool}
+    beaten_once = all(v == 1 for v in ko_per_boss.values()) and len(kos) == len(P.acts)
+    takes_ok = all(x.takes and x.takes[-1].won and not any(tk.won for tk in x.takes[:-1])
+                   and abs(x.takes[-1].end - x.ko) < 1e-6 for x in P.acts)
+    rec("R7", all(5 <= v <= 20 for v in lens) and acts_ok and three and has_cards and set(pool) <= set(seen) and no_repeat
+        and beaten_once and takes_ok, acts=len(P.acts), minutes=[round(v, 1) for v in lens], on_downbeats=acts_ok,
+        three_phases=three, ready_go_ko_cards=has_cards, bosses_seen=seen, no_back_to_back=no_repeat,
+        each_boss_beaten_once=beaten_once, last_take_won=takes_ok, takes=[len(x.takes) for x in P.acts])
 
     # R8: intermissions
     eligible = []
@@ -244,9 +255,18 @@ def _plan_checks(set_audio):
     n_bul = bul_ok = 0
     sup_ok, n_sup = 0, 0
     pink = parried = 0
+    n_hit = hit_beat = n_rev = rev_beat = 0
     drops = [m.snap_bar(d.t0) for d in st.drops]
     for x in P.acts:
         F = sc._fight(x)
+        for h in (0, 1):
+            for th in F.hits[h]:
+                n_hit += 1
+                hit_beat += float(np.min(np.abs(m.beats - th))) * fps <= 1.0
+        for tr, by, of in F.revives:
+            n_rev += 1
+            lift, j, _ = F.jump_at(by, tr)
+            rev_beat += float(np.min(np.abs(m.beats - tr))) * fps <= 1.0 and j is not None and j.parry and lift > 0
         for s in F.shots:
             n_shots += 1
             on_beat += float(np.min(np.abs(m.beats - s.ts))) * fps <= 1.0
@@ -268,9 +288,11 @@ def _plan_checks(set_audio):
         for t in F.supers:
             n_sup += 1
             sup_ok += min(abs(t - d) for d in drops) * fps <= 1.0
-    rec("R9", on_beat == n_shots and in_kick == n_shots and bul_ok == n_bul and sup_ok == n_sup and parried == pink,
+    rec("R9", on_beat == n_shots and in_kick == n_shots and bul_ok == n_bul and sup_ok == n_sup and parried == pink
+        and hit_beat == n_hit and rev_beat == n_rev,
         boss_shots=n_shots, on_beat=on_beat, in_kick_bars=in_kick, hero_shots=n_bul, hero_shots_on_grid_when_hats=bul_ok,
-        supers=n_sup, supers_on_drops=sup_ok, pink=pink, parried=parried)
+        supers=n_sup, supers_on_drops=sup_ok, pink=pink, parried=parried, hits=n_hit, hits_on_beat=hit_beat,
+        revives=n_rev, revives_parried_on_beat=rev_beat)
 
     # R10: every string the lettering draws, sampled every second of the set
     seen_txt = set()
@@ -285,12 +307,19 @@ def _plan_checks(set_audio):
             sc.build(float(t))
         for c in P.cards:                     # and the middle of every card, however short
             sc.build((c.t0 + c.t1) / 2)
+        for g in P.eggs:                      # and every easter egg at its key moments
+            for u in (0.2, 0.3, 0.5, 0.7):
+                sc.build(g.t0 + u * (g.t1 - g.t0))
+        for x in P.acts:                      # and every Super Art's wind-up
+            for s0 in sc._fight(x).supers:
+                sc.build(s0 + 0.25 * sc._fight(x).super_dur)
     finally:
         lettering.words = orig
     title = " ".join(set_audio.stem.replace("_", " ").replace("&", " & ").split())
     parts = [p.strip() for p in title.split(" - ") if p.strip()]
     allowed = {"READY?", "KNOCKOUT!", "INTERMISSION", "FOLLOW THE BOUNCING BALL!", "THE END", "A RUBBER HOSE REVUE",
                "STARRING", "RING!", "MEOW!", "RIBBIT!", "GONG!", "HA HA!", "RIP", "LA", "DA", "DOO", "BOP", "HEY",
+               "CLANG!", "BOOM!", "ACHOO!", "?", *[f"TAKE {k}" for k in range(2, 10)],
                *story.EXCLAIM, *story.GO_WORDS, *parts, " - ".join(parts[1:]), f"{sc.names[0]} & {sc.names[1]}"}
     rounds = {f"ROUND {x.k + 1}: {bosses.BY_NAME[x.boss]['title']}" for x in P.acts}
     bad = sorted(s for s in seen_txt if s not in allowed and s not in rounds and not re.fullmatch(r"BPM \d+", s))
@@ -309,17 +338,101 @@ def _plan_checks(set_audio):
         hot = t_sa[col > 0.45]
         lat.append(float(np.min(np.abs(hot - g.t0))) if len(hot) else 99.0)
     kinds11 = sorted({g.kind for g in sound_gags})
+    _combat_checks(sc)
     rec("R11", gaps <= 2.0 and len(kinds11) >= 8 and max(lat or [99]) <= 2.0, classifier_windows=len(t_sa),
         max_gap_s=round(gaps, 2), sound_gag_kinds=kinds11, sound_gags=len(sound_gags),
         max_latency_s=round(max(lat or [0]), 2))
+
+
+def _combat_checks(sc):
+    """R16 (health, deaths, revives, takes), R17 (super cards, EX, Super Arts), R18 (easter eggs)."""
+    m, P = sc.m, sc.P
+    bad16, bad17 = [], []
+    n_takes = n_lost = acts_retaken = n_rev = n_solo = n_hits = anomalies = 0
+    for x in P.acts:
+        F = sc._fight(x)
+        anomalies += F.anomalies
+        acts_retaken += len(x.takes) > 1
+        for tk in x.takes:
+            n_takes += 1
+            n_lost += not tk.won
+            for h in (0, 1):
+                hits = [t for t in F.hits[h] if tk.go <= t < tk.end]
+                n_hits += len(hits)
+                hp = combat.HP
+                prev = -1e9
+                evs = sorted([(t, "hit") for t in hits]
+                             + [(r[0] + 0.25, "rev") for r in F.revives if r[2] == h and tk.go <= r[0] < tk.end])
+                for t, kind in evs:
+                    if kind == "rev":
+                        if hp != 0:
+                            bad16.append(("revived while up", x.boss, round(t, 2)))
+                        hp = 1
+                        continue
+                    if not F.is_alive(h, t - 1e-3):
+                        bad16.append(("hit while down", x.boss, h, round(t, 2)))
+                    if t - prev < 1.0:
+                        bad16.append(("hit inside invulnerability", x.boss, h, round(t, 2)))
+                    prev = t
+                    hp -= 1
+                    if F.hp(h, t + 1e-3) != max(hp, 0):
+                        bad16.append(("hp", x.boss, h, round(t, 2), F.hp(h, t + 1e-3), hp))
+                    down = [dn for dn in F.downs if dn.h == h and abs(dn.t - t) < 1e-6]
+                    if (hp <= 0) != bool(down):
+                        bad16.append(("down at 0 hp", x.boss, h, round(t, 2), hp))
+            both = [t for t in np.arange(tk.go, tk.end, 0.25) if not F.is_alive(0, t) and not F.is_alive(1, t)]
+            if tk.won and both:
+                bad16.append(("both down in a won take", x.boss, tk.n, round(both[0], 1)))
+            if not tk.won and (F.is_alive(0, tk.end - 0.01) or F.is_alive(1, tk.end - 0.01)):
+                bad16.append(("lost take with a hero up", x.boss, tk.n))
+            if tk.won and any(not F.is_alive(h, tk.end - 0.01) for h in (0, 1)):
+                n_solo += 1
+        for tr, by, of in F.revives:
+            n_rev += 1
+            dn = next((d for d in F.downs if d.h == of and d.revive == tr), None)
+            if dn is None or not F.is_alive(by, tr) or not (dn.t < tr < dn.away):
+                bad16.append(("revive", x.boss, round(tr, 2)))
+        # super cards: 0..5, an EX spends one, a Super Art spends a full hand
+        for h in (0, 1):
+            vv = F.meter_v[h]
+            if vv and (min(vv) < -1e-9 or max(vv) > 5 + 1e-9):
+                bad17.append(("meter out of range", x.boss, h))
+            for te, hh in F.exs:
+                if hh == h:
+                    b, a = F.meter(h, te - 1e-6), F.meter(h, te + 1e-6)
+                    if b < 1 - 1e-9 or abs((b - a) - 1.0) > 1e-6:
+                        bad17.append(("EX", x.boss, h, round(te, 2), round(b, 3), round(a, 3)))
+            for s0, hh in F.super_by:
+                if hh == h:
+                    b, a = F.meter(h, s0 - 1e-6), F.meter(h, s0 + 1e-6)
+                    if b < 5 - 1e-6 or a > 1e-9:
+                        bad17.append(("super", x.boss, h, round(s0, 2), round(b, 3), round(a, 3)))
+    rec("R16", not bad16 and anomalies == 0 and acts_retaken * 2 >= len(P.acts) and n_rev >= 5 and n_solo >= 1,
+        takes=n_takes, lost_takes=n_lost, acts_with_retakes=acts_retaken, hits=n_hits, revives=n_rev,
+        solo_finishes=n_solo, shots_through_heroes=anomalies, problems=bad16[:6])
+    n_ex = sum(len(sc._fight(x).exs) for x in P.acts)
+    n_sa = sum(len(sc._fight(x).super_by) for x in P.acts)
+    rec("R17", not bad17 and n_ex > 0 and n_sa > 0, ex_shots=n_ex, super_arts=n_sa, problems=bad17[:6])
+    # easter eggs: one about every minute, plenty of kinds, no quick repeats
+    E = sorted(P.eggs, key=lambda g: g.t0)
+    t0s = np.array([g.t0 for g in E])
+    span = (P.outro[0] - P.intro[1]) / 60
+    gap = float(max(np.diff(t0s).max(), t0s[0] - P.intro[1], P.outro[0] - t0s[-1])) if len(E) > 1 else 1e9
+    last, rep_min = {}, 1e9
+    for g in E:
+        if g.kind in last:
+            rep_min = min(rep_min, g.t0 - last[g.kind])
+        last[g.kind] = g.t0
+    kinds = sorted({g.kind for g in E})
+    rec("R18", len(E) >= span - 1 and gap <= 90 and len(kinds) >= 20 and rep_min >= 600, eggs=len(E),
+        minutes=round(span, 1), max_gap_s=round(gap, 1), kinds=len(kinds), min_repeat_s=round(rep_min, 1))
 
 
 def _r13(fx):
     o1 = render(fx["setB.wav"], W / "det1.mov", "--duration", "6", "-k", "twostrip")
     o2 = render(fx["setB.wav"], W / "det2.mov", "--duration", "6", "-k", "twostrip")
     side = json.loads(Path(str(o1) + ".json").read_text())
-    cmd = shlex.split(side["reproduce"]) + ["-o", str(W / "det3.mov")]
-    cmd[0] = BIN
+    cmd = BIN + shlex.split(side["reproduce"])[1:] + ["-o", str(W / "det3.mov")]
     sh(cmd)
     m1, m2, m3 = verify.frame_md5(o1), verify.frame_md5(o2), verify.frame_md5(W / "det3.mov")
     out_r = W / "resume.mov"
@@ -330,7 +443,7 @@ def _r13(fx):
             shutil.rmtree(p)
         elif p.exists():
             p.unlink()
-    rargs = [BIN, "render", str(fx["setB.wav"]), "-t", "rubberhose", "-o", str(out_r), "--chunk", "3", "--cpu", "4.5"]
+    rargs = [*BIN, "render", str(fx["setB.wav"]), "-t", "rubberhose", "-o", str(out_r), "--chunk", "3", "--cpu", "4.5"]
     proc = subprocess.Popen(rargs, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     t_end = time.time() + 180
     while time.time() < t_end and len(list(parts.glob("chunk*[0-9].mp4"))) < 3:

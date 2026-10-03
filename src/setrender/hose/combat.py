@@ -27,8 +27,6 @@ import numpy as np
 from . import story
 from .story import h01
 
-import os
-DEBUG = bool(os.environ.get("HOSE_DEBUG"))
 HP = 3
 INV_HIT = 1.5          # seconds untouchable after a hit
 INV_REVIVE = 2.0       # ... and after a revive
@@ -477,8 +475,6 @@ class Fight:
                             continue
                         cands.append((abs(ta - t_star) + 0.05 * n + (0.3 if kind != sl["kind"] else 0), sl, kind, n, ta))
             cands.sort(key=lambda c: c[0])
-            if DEBUG:
-                print("place", h, round(t_star, 1), "cands", len(cands), "free", sum(free(h, c[4]) for c in cands[:40]))
             for _, sl, kind, n, ta in cands[:40]:
                 if not free(h, ta) or (self._inv(h, ta)):
                     continue
@@ -488,8 +484,6 @@ class Fight:
                 if kind == "rain":
                     ty = float(y[0]) - (230 if not self.sky else 0)
                 s = self._aim_edge(kind, sl["ts"], n, tx, ty, sl["seed"], h, ta)
-                if DEBUG:
-                    print("   try", kind, n, round(ta, 2), "edge", s is not None, "clear", s is not None and self._clear(s, ta, ignore=h))
                 if s is None:
                     continue
                 s.who, s.role, s.end = h, "hit", "hit"
@@ -776,7 +770,7 @@ class Fight:
             ev += [(p[0], "p", p) for p in self.parries if p[1] == h and tk.go <= p[0] < tk.end]
             ev += [(t, "x", bk) for t, bk in exc if h01(self.seed, "ex", h, bk) < 0.2]
             ev += [(t, "s") for t in drops]
-            ev.sort(key=lambda e: (e[0], {"b": 0, "p": 1, "s": 2, "x": 3}[e[1]]))
+            ev.sort(key=lambda e: (e[0], {"x": 0, "b": 1, "p": 2, "s": 3}[e[1]]))
             mv = 0.0
             mt, vv = self.meter_t[h], self.meter_v[h]
             mt.append(tk.go)
@@ -788,6 +782,8 @@ class Fight:
                 if any(s0 <= t < s0 + self.super_dur for s0 in supers):
                     continue
                 if kind == "b":
+                    if 0 <= t - last_ex < 0.3:        # no peashooter while throwing an EX
+                        continue
                     mv = min(5.0, mv + BULLET_CARD)
                 elif kind == "p":
                     if e[2] not in self.parries:      # given up to make room for a Super Art

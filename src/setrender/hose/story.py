@@ -412,7 +412,7 @@ def take_at(a: Act, t: float) -> Take:
 # stages with a floor; sky = plane stages
 EGGS = {
     "pie": (5.0, "fight"), "anvil": (4.5, "fight"), "pencil": (7.0, "fight"), "fly": (5.0, "any"),
-    "shadow": (6.0, "any"), "slip": (1.6, "any"), "balloons": (8.0, "any"), "ufo": (8.0, "any"),
+    "shadow": (6.0, "any"), "slip": (2.4, "any"), "balloons": (8.0, "any"), "ufo": (8.0, "any"),
     "jelly": (8.0, "any"), "smiley": (6.0, "any"), "discoball": (8.0, "fight"), "cassette": (6.0, "any"),
     "invader": (7.0, "any"), "qblock": (5.0, "ground"), "pipe": (6.0, "ground"), "stagehand": (6.0, "ground"),
     "bowling": (4.0, "ground"), "bomb": (5.0, "ground"), "metronome": (8.0, "any"), "cuckoo": (5.0, "any"),
@@ -452,12 +452,14 @@ def schedule_eggs(m: Music, P: Plan, key: float) -> list[Gag]:
             cands.append(t)
         cands.sort(key=lambda t: abs(t - 60.0 * k + 8))
         placed = False
-        for t in cands:
+        for t, fresh in [(t, f) for f in (True, False) for t in cands]:
             md = mode(t)
             for j, e in enumerate(deck):
                 d, where = EGGS[e]
                 if md == "card" or (md == "inter" and where != "any") or (md == "sky" and where == "ground"):
                     continue
+                if fresh and any(x.kind == e and t - x.t0 < 480 for x in out):
+                    continue        # not the same egg twice in eight minutes, if anything else fits
                 if any(b0 < t + d and t < b1 for b0, b1 in blocked) or mode(t + d) != md:
                     continue
                 if out and t < out[-1].t1 + 2 * bar:
