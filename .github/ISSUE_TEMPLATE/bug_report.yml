@@ -1,0 +1,48 @@
+name: Bug report
+description: Something broke, looked wrong, or fell off the beat
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! The receipt next to your video (`out/<name>.mov.json`) has every setting and tool version, so attaching it saves a lot of back and forth.
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you ran
+      render: bash
+      placeholder: .venv/bin/setrender render "my set.wav" -t rubberhose --start 600 --duration 30
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: For a visual problem, the time in the video (e.g. 1:02:13) and a still or screenshot help most.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Terminal output
+      description: The last lines the command printed, especially any error.
+      render: text
+  - type: textarea
+    id: receipt
+    attributes:
+      label: Receipt
+      description: Paste or attach `out/<name>.mov.json` if the render got that far.
+      render: json
+  - type: input
+    id: machine
+    attributes:
+      label: Machine
+      placeholder: MacBook Pro M1 Pro 16 GB, macOS 26.1
+  - type: dropdown
+    id: ai
+    attributes:
+      label: Was this issue written with an AI tool?
+      options:
+        - "No"
+        - Yes, and I have checked every detail
+    validations:
+      required: true

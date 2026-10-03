@@ -1,0 +1,22 @@
+name: Feature or improvement
+description: A new option, keyword, output or improvement to an existing template
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The outcome you want, in your own words, rather than a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How might it work?
+      description: A command you'd like to be able to run, or what you'd see in the video.
+      render: bash
+  - type: textarea
+    id: done
+    attributes:
+      label: How would we know it works?
+      description: Optional. Checkable statements help turn this into criteria.

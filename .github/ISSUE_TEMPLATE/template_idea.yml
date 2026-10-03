@@ -1,0 +1,39 @@
+name: Template idea
+description: Pitch a new world for sets to play in
+labels: [template idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every template here started as a brief like this one. Describe the world; no code needed.
+        Have a look at the [existing templates](https://github.com/dnk8n/setrenderer/blob/main/docs/templates/README.md) and their [criteria](https://github.com/dnk8n/setrenderer/blob/main/docs/criteria/README.md) for the level of detail that helps.
+  - type: textarea
+    id: world
+    attributes:
+      label: The world
+      description: Where are we, what does it look like, what era or style, who is there?
+      placeholder: A night surf contest in 80s poster colours. Surfers ride waves that swell with the bassline...
+    validations:
+      required: true
+  - type: textarea
+    id: music
+    attributes:
+      label: What moves to the music
+      description: What should the kick, the bassline, the hi-hats, the breakdowns and the drops do?
+    validations:
+      required: true
+  - type: textarea
+    id: feel
+    attributes:
+      label: How it should feel over two hours
+      description: How does it stay varied? What changes between sections? Any easter eggs or nods?
+  - type: textarea
+    id: done
+    attributes:
+      label: How would we know it's done?
+      description: Optional. Checkable statements, like "every wave breaks on a downbeat".
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: Links to the art styles, games or films that inspire it. The template's characters and art must be original.
