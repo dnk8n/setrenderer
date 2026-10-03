@@ -139,6 +139,8 @@ class Fight:
         k = (h, blk)
         if k not in self._blk:
             lo, hi = ((110, 470), (540, 900))[h]
+            if self.a.stage == "ballroom" and h == 0:
+                lo = 290            # keep clear of the stage curtain
             self._blk[k] = (lo + (hi - lo) * h01(self.seed, "hx", h, blk), 260 + 420 * h01(self.seed, "hy", h, blk))
         return self._blk[k]
 
