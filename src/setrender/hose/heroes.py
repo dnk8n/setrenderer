@@ -48,6 +48,8 @@ class Pose:
     muzzle: float = 0.0       # 0..1 flash at the finger tip
     hat: bool = False         # straw boater for the vaudeville number
     cane: bool = False
+    crouch: float = 0.0       # 0..1 ducking under a flyer
+    yikes: float = 0.0        # 0..1 shock after a near miss
 
 
 def _head(ink: Ink, kind: str, p: Pose, sq: float):
@@ -136,7 +138,9 @@ def draw(ink: Ink, kind: str, x: float, y: float, p: Pose, s: float = 1.0):
     air = p.lift > 4 or p.action in ("jump", "parry", "hurt")
     sx_body, sy_body = 1 + 0.10 * sq, 1 - 0.12 * sq
     spin = p.spin * f if p.action == "parry" else 0.0
-    with ink.at(x, y - p.lift - (130 * s if spin else 0), spin, s), ink.at(0, 130 if spin else 0):
+    cr = p.crouch
+    with ink.at(x, y - p.lift - (130 * s if spin else 0), spin, s * (1 + 0.16 * cr), s * (1 - 0.42 * cr)), \
+            ink.at(0, 130 if spin else 0):
         # shadow on the ground (stays on the floor)
         with ink.at(0, p.lift, 0, 1.0 - min(p.lift, 200) / 400):
             ink.ellipse(0, -2, 52, 9, fill=(0.15, 0.1, 0.08, 0.28), ink=0, shade=0, soft=3, boil=0)
@@ -182,6 +186,16 @@ def draw(ink: Ink, kind: str, x: float, y: float, p: Pose, s: float = 1.0):
         with ink.at(0, head_y, 0.03 * math.sin(p.beat * math.pi) * f,
                     sx_body * 1.0, sy_body * 1.0 + 0.04 * sq):
             _head(ink, kind, p, sq)
+            if p.yikes > 0:
+                k = p.yikes
+                for j in range(3):
+                    a = -math.pi / 2 + (j - 1) * 0.55
+                    ink.capsule(math.cos(a) * 92, math.sin(a) * 92 - 10, math.cos(a) * (92 + 34 * k),
+                                math.sin(a) * (92 + 34 * k) - 10, 3.0, fill=INK, ink=0, shade=0)
+                for j in range(2):
+                    q = (1 - k + j * 0.3) % 1.0
+                    ink.ellipse((-1) ** j * (70 + 40 * q), -40 + 60 * q * q, 8, 12, fill=rgb("bfe3ff"), ink=2.5,
+                                shade=0.3)
             if p.hat:
                 top = {"pepper": -90, "salt": -90, "loaf": -70, "bulb": -84, "sugar": -62}[kind]
                 with ink.at(0, top, -0.15 * f + 0.1 * math.sin(p.beat * math.pi)):
@@ -211,6 +225,14 @@ def _arms(p: Pose, ph: float, sq: float, en: float, air: bool) -> dict:
     out = {}
     for side in (-1, 1):
         front = side * f > 0
+        if p.crouch > 0.3:                # ducking: both hands clamped on top of the head
+            hx, hy = side * 30, sh_y - 95
+            out[side] = (hx, hy, -math.pi / 2 - side * 0.3, "open", -0.35 * side)
+            continue
+        if p.action == "reach" and front:  # stretching for a heart
+            hx, hy = side * 20 + 8 * f, sh_y - 96
+            out[side] = (hx, hy, -math.pi / 2, "open", 0.05 * side)
+            continue
         if p.action == "hurt":            # flung back by a hit: hands up, fingers spread
             ang = -math.pi / 2 + side * 1.15 + 0.25 * math.sin(p.t * 30)
             hx, hy = side * 26 + math.cos(ang) * 72, sh_y + math.sin(ang) * 72

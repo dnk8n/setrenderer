@@ -11,7 +11,7 @@ import numpy as np
 from .. import analysis
 from ..crop import music as cmusic
 from ..timeline import _attack_release
-from . import bosses, combat, eggs, gags, heroes, rig, shows, stages, story
+from . import bosses, combat, eggs, gags, heroes, minions, rig, shows, stages, story
 from .ctx import Ctx
 from .engine import Engine
 from . import lettering
@@ -398,13 +398,15 @@ class HoseScene:
                         if tt < s.life:
                             bosses.ring_wave(ink, *F.shot_xy(s, tt), min(1.0, tt / s.life))
                         continue
+                    if s.kind in combat.MINIONS:
+                        continue          # drawn in front of the heroes, below
                     if tt >= s.life:          # how it ended: popped by a parry, hit a hero, splashed down
                         x, y = F.shot_xy(s, s.life)
                         q = (tt - s.life) / 0.18
                         if s.end == "parry":
                             rig.impact(ink, x, y, 80, q, col=rgb("ffb3d6"))
                         elif s.end == "hit":
-                            rig.impact(ink, x, y, 95, q, col=rgb("fff3c4"))
+                            rig.impact(ink, x, y, 95 + 30 * s.pink, q, col=rgb("ff8ab8") if s.pink else rgb("fff3c4"))
                         elif s.end == "floor":
                             for j in range(3):
                                 ink.ellipse(x - 30 + 30 * j, y - 10 - 40 * q, 16 + 22 * q,
@@ -417,6 +419,10 @@ class HoseScene:
                     stage(ink, c, "water")
                 # heroes and their shots
                 self._heroes(ink, c, t, a, F, bl, tk)
+                for s in sh:
+                    if s.kind in combat.MINIONS:
+                        self._minion(ink, c, a, F, s, t)
+                self._pickups(ink, c, a, F, t)
                 stage(ink, c, "front")
                 if a.stage == "ballroom":
                     cheer = any(g.kind == "audience" and g.t0 <= t < g.t1 for g in P.gags) or c.ko >= 0
@@ -434,6 +440,61 @@ class HoseScene:
         for g, u, w in layers["screen"]:
             eggs.DRAW[g.kind](ink, c, g, u, w)
         return flash
+
+    def _minion(self, ink: Ink, c: Ctx, a, F, s, t: float):
+        tt = t - s.ts
+        if tt >= s.life:
+            q = (tt - s.life) / 0.18
+            x, y = F.shot_xy(s, s.life)
+            if s.end == "pop":
+                q = (tt - s.life) / 0.6
+                if q < 1:
+                    minions.popped(ink, c, a.boss, s, float(x), float(y), q, combat.GROUND)
+            elif s.end == "hit" and q < 1:
+                rig.impact(ink, float(x), float(y), 110, q, col=rgb("fff3c4"))
+            return
+        x, y = F.shot_xy(s, tt)
+        minions.draw(ink, c, a.boss, s, float(x), float(y), tt, combat.GROUND, s.vx)
+
+    def _pickups(self, ink: Ink, c: Ctx, a, F, t: float):
+        """Hearts drifting through on little wings: grabbed, missed by a whisker, or snatched away."""
+        for pk in F.pickups:
+            if not (pk.t_in <= t < pk.t + 3.0):
+                continue
+            edge = -90.0 if pk.side < 0 else W + 90.0
+            if t < pk.t:
+                u = (t - pk.t_in) / (pk.t - pk.t_in)
+                e = 1 - (1 - u) ** 2
+                x = edge + (pk.x - edge) * e
+                y = pk.y + 45 * math.sin(u * 9.4) * (1 - u)
+                if pk.outcome == "stolen" and t > pk.t - 0.3:
+                    k = (t - (pk.t - 0.3)) / 0.3
+                    self._thief(ink, c, a, x + 160 * (1 - k), y - 140 * (1 - k))
+                    if k > 0.5:
+                        y -= 260 * (k - 0.5) ** 2
+                heroes_heart(ink, c, x, y)
+                continue
+            d = t - pk.t
+            if pk.outcome == "got":
+                if d < 0.35:
+                    rig.impact(ink, pk.x, pk.y, 80, d / 0.35, col=rgb("ff9ab0"))
+                if d < 0.6:
+                    q = d / 0.6
+                    tx = (62 + 98 + 48 * 2) if pk.h == 0 else (W - 62 - 98 - 48 * 2)
+                    ink.heart(pk.x + (tx - pk.x) * q, pk.y + (1012 - pk.y) * q - 160 * math.sin(math.pi * q), 22,
+                              fill=rgb("d9433a"), ink=3)
+            elif pk.outcome == "miss":
+                dirx = -pk.side
+                heroes_heart(ink, c, pk.x + dirx * 280 * d, pk.y - 130 * d - 30 * math.sin(d * 5))
+            else:
+                x, y = pk.x - 420 * d, pk.y - 330 * d
+                if y > -200:
+                    self._thief(ink, c, a, x, y - 40)
+                    heroes_heart(ink, c, x, y + 20)
+
+    def _thief(self, ink: Ink, c: Ctx, a, x: float, y: float):
+        fn = minions.FLYERS.get(a.boss, minions.quaver_flyer)
+        fn(ink, c, x, y, 0.0, -1.0)
 
     def _phase_flourish(self, ink: Ink, c: Ctx, b: dict, u: float):
         """The boss changes phase: a puff of smoke all round it and a flash."""
@@ -468,7 +529,15 @@ class HoseScene:
                 p.run = ((t - m.bar_time(m.bar_at(t))) / (m.period * 0.5)) % 1.0
                 p.facing = dirx
             tilt = 0.0
-            if j is not None:
+            p.crouch = F.crouch_at(h, t)
+            gz = F.graze_at(h, t)
+            if gz is not None:
+                p.yikes = 1.0 - gz[0] / 0.45
+                p.mouth, p.look = 0.9, (0.0, -1.0)
+            if j is not None and j.kind == "grab":
+                p.action, p.lift = "reach", lift
+                p.facing = 1.0 if h01("gf", j.t0) < 0.6 else -1.0
+            elif j is not None:
                 if j.kind == "slip":          # banana peel: feet fly up, down on the seat
                     p.action, p.lift = "hurt", lift
                     tilt = -1.2 * math.sin(math.pi * ju) * p.facing
@@ -510,6 +579,13 @@ class HoseScene:
                     heroes.draw(ink, kind, x, y, p, 1.0)
             if age < 0.3:
                 rig.impact(ink, x + 30, y - p.lift - (130 if not a.sky else 0), 80, age / 0.3, col=rgb("ffd0a0"))
+            ds = F.dash_at(h, t)
+            if ds is not None and not a.sky:            # zipping clear of a popper: speed lines and dust
+                q, dirx = ds
+                rig.speed_lines(ink, x - dirx * 60, y - 120, 0.0 if dirx > 0 else math.pi, n=4, ln=110, spread=30)
+                for k in range(3):
+                    ink.ellipse(x - dirx * (50 + 40 * k + 60 * q), y - 14 - 18 * q, 14 + 10 * q + 6 * k,
+                                fill=(0.95, 0.9, 0.8, 0.7 * (1 - q)), ink=2 * (1 - q), shade=0.2)
             hands[h] = (x + 50, y - 10 - p.lift) if a.sky else (x + 80, y - 135 - p.lift)
             for s0 in mine:
                 self._super_art(ink, c, kind, hands[h], (t - s0) / F.super_dur, h)
@@ -539,10 +615,27 @@ class HoseScene:
                 heroes.ex_shot(ink, self.cast[h], x, y, t, 1.25)
             else:
                 rig.impact(ink, x1, y1, 170, min(1.0, (q - 1.0) / 0.6), col=rgb("ffe9a0"))
-        # parry pops: a pink flash where a shot or a ghost was slapped
+        # parry pops: a pink flash where a shot or a ghost was slapped, and a whole card flies to the HUD
         for pt, h, px, py, kind in F.parries:
-            if 0 <= t - pt < 0.3:
-                ink.star(px, py, 60 + 200 * (t - pt), 8, 3, fill=rgb("ffb3d6"), ink=3, rot=t * 4)
+            d = t - pt
+            if 0 <= d < 0.3:
+                ink.star(px, py, 60 + 200 * d, 8, 3, fill=rgb("ffb3d6"), ink=3, rot=t * 4)
+            if 0.05 <= d < 0.6 and self.hud_on:
+                q = (d - 0.05) / 0.55
+                slot = int(min(4, max(0, math.ceil(F.meter(h, pt + 0.01)) - 1)))
+                tx = (62 + 262 + 38 * slot) if h == 0 else (W - 62 - 262 - 38 * slot)
+                with ink.at(px + (tx - px) * q, py + (1014 - py) * q - 200 * math.sin(math.pi * q), q * 6.3,
+                            1.4 - 0.4 * q):
+                    ink.box(0, 0, 15, 24, 4, fill=rgb("fffaf0"), ink=3, shade=0.2)
+                    ink.heart(0, 2, 8.5, fill=rgb("d9433a"), ink=0)
+        for st, h, word in F.shouts:
+            d = t - st
+            if 0 <= d < 1.1:
+                hx, hy, *_ = F.hero_xy(h, st)
+                k = min(1.0, d / 0.12)
+                with ink.at(hx + 40, (hy - 330) if not a.sky else hy - 170, -0.12 + 0.05 * math.sin(c.t * 8),
+                            k, fade=max(0.0, (d - 0.8) / 0.3)):
+                    lettering.words(ink, word, 0, 0, 58, fill=rgb("fff2b0"), wobble=1.6, t=c.td)
 
     def _downed(self, ink: Ink, c: Ctx, t: float, a: story.Act, F: combat.Fight, h: int, kind: str, dn):
         """A hero at 0 HP: flat out on the floor (or their plane spinning away) while their ghost rises;
@@ -716,3 +809,15 @@ class HoseScene:
             u = min(1.0, (t - (end - 2.0)) / 2.0)
             return [W / 2, 420, 2300 * (1 - u) ** 1.6]
         return None
+
+
+def heroes_heart(ink: Ink, c: Ctx, x: float, y: float):
+    """A floating heart with little wings, glowing."""
+    flap = math.sin(c.t * 18)
+    ink.glow(x, y, 60, (1.0, 0.45, 0.55, 0.4), soft=30)
+    for side in (-1, 1):
+        with ink.at(x + side * 22, y - 8, side * (0.4 + 0.5 * flap)):
+            ink.ellipse(side * 20, 0, 22, 9, fill=rgb("fffaf0"), ink=2.5, shade=0.2)
+    with ink.at(x, y, 0.1 * math.sin(c.t * 4), 1.0 + 0.1 * c.squash):
+        ink.heart(0, 0, 26, fill=rgb("e03a4a"), ink=4)
+        ink.ellipse(-9, -8, 5, 3, fill=(1, 1, 1, 0.7), ink=0, shade=0, rot=-0.6)

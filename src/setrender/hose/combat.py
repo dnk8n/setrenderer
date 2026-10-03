@@ -25,6 +25,7 @@ path is checked against both heroes' motion so nothing passes through anyone by 
 from __future__ import annotations
 
 import bisect
+import heapq
 import math
 from dataclasses import dataclass
 
@@ -44,8 +45,9 @@ GROUND = 905.0
 SHOT_R = 26.0
 HALF_W, TALL = 46.0, 255.0          # ground hero hitbox (feet at the bottom)
 MINIONS = ("runner", "flyer", "popper")
-MINION_SIZE = 1.6
+MINION_SIZE = 2.0
 GRAZE = 60.0                        # px: a shot that passes this close to a hero is a near miss
+SHOUTS = ["YIKES!", "PHEW!", "WHOA!", "CLOSE ONE!", "HOO BOY!"]
 PLANE_RX, PLANE_RY = 150.0, 88.0    # plane hitbox
 
 
@@ -91,13 +93,14 @@ class Jump:
 
 
 @dataclass
-class Run:             # a stretch where a hero leaves their lane (to revive someone, or getting back up)
+class Run:             # a stretch where a hero leaves their lane (to revive someone, getting back up, a dash)
     t0: float
     t1: float
     t2: float
     t3: float
     x: float
     y: float
+    kind: str = "run"  # run | dash
 
 
 @dataclass
@@ -145,7 +148,8 @@ class Fight:
         self.pickups: list[Pickup] = []
         self.moves: list[tuple] = []              # (hero, move, shot it gets out of the way of)
         self.grazes: list[tuple] = []             # (t, hero, distance px, shot)
-        self.minion_kinds = [k for k in boss_info.get("minions", ()) if not (a.sky and k != "flyer")]
+        self.minion_kinds = [k for k in boss_info.get("minions", ()) if not (a.sky and k != "flyer")] \
+            if cfg.get("sidekicks", True) else []
         self.inv: list[list[tuple[float, float]]] = [[], []]
         self.busy: list[list[tuple[float, float]]] = [[], []]
         self._blk: dict = {}
@@ -502,23 +506,21 @@ class Fight:
         else:
             if r < 0.12:
                 pat = "close"                 # never quite down, but always hurting
-                hits = [(at(0.2, 1), A), (at(0.45, 2), A), (at(0.75, 3), A), (at(0.3, 4), B), (at(0.6, 5), B),
-                        (at(0.88, 6), B)]
-                rev = {A: [False], B: []}
+                hits = [(at(0.25, 1), A), (at(0.6, 2), A), (at(0.35, 4), B), (at(0.8, 5), B)]
+                rev = {A: [], B: []}
             elif r < 0.3:
-                pat = "scrape"                # both end on their last heart
-                hits = [(at(0.15, 1), A), (at(0.4, 2), A), (at(0.7, 3), A), (at(0.25, 4), B), (at(0.55, 5), B),
-                        (at(0.85, 6), B)]
+                pat = "scrape"                # both end on their last heart (a heart grabbed buys one more knock)
+                hits = [(at(0.15, 1), A), (at(0.55, 2), A), (at(0.3, 4), B), (at(0.85, 5), B)]
                 rev = {A: [], B: []}
             elif r < 0.62:
                 pat = "revive"
-                hits = [(at(0.14, 1), A), (at(0.28, 2), A), (at(0.44, 3), A), (at(0.66, 4), A), (at(0.35, 5), B),
-                        (at(0.75, 6), B)]
+                hits = [(at(0.14, 1), A), (at(0.28, 2), A), (at(0.44, 3), A), (at(0.35, 5), B), (at(0.62, 6), B),
+                        (at(0.82, 4), B)]
                 rev = {A: [True], B: []}
             elif r < 0.82:
                 pat = "double_revive"         # each saves the other once on the way to the knockout
-                hits = [(at(0.1, 1), A), (at(0.2, 2), A), (at(0.32, 3), A), (at(0.8, 4), A),
-                        (at(0.26, 5), B), (at(0.46, 6), B), (at(0.6, 7), B)]
+                hits = [(at(0.1, 1), A), (at(0.2, 2), A), (at(0.32, 3), A),
+                        (at(0.26, 5), B), (at(0.46, 6), B), (at(0.6, 7), B), (at(0.85, 4), A)]
                 rev = {A: [True], B: [True]}
             else:
                 pat = "solo"                  # A's ghost floats off; B finishes the job alone
@@ -611,7 +613,7 @@ class Fight:
 
         def try_revive(dn: Down, by: int):
             m = self.m
-            for k in (4, 5, 3, 6):
+            for k in (4, 5, 3, 6, 7, 2, 8):
                 t_r = float(m.beat_time(round(m.beat_pos(dn.t)) + k))
                 if t_r > tk.end - bar or any(i.t0 - 0.5 < t_r < i.t1 for i in self.inters):
                     continue
@@ -650,7 +652,8 @@ class Fight:
         D = tk.end - tk.go
         nh = max(1, int(round(D / 80.0)))
         hearts = [tk.go + D * ((k + 0.5) / nh + (h01(self.seed, tk.n, "hf", k) - 0.5) * 0.6 / nh) for k in range(nh)]
-        events = sorted([(t, h) for t, h in hits] + [(t, -1) for t in hearts])
+        events = [(t, h) for t, h in hits] + [(t, -1) for t in hearts]
+        heapq.heapify(events)
 
         def heart(t_star):
             """A heart floats through: whoever is hurt jumps for it. Grabbed, missed by a whisker, or snatched
@@ -680,10 +683,16 @@ class Fight:
                     last_ev[h] = max(last_ev[h], t)
                     if outcome == "got":
                         hp[h] = min(HP, hp[h] + 1)
+                        # the boss makes them pay for it later, so the fight still goes the way it was going: in a
+                        # lost take, and when a fall (and a save) is still to come for this hero in a won one
+                        pending_save = n_dead[h] < len(rev[h]) and rev[h][n_dead[h]]
+                        if not tk.won or pending_save:
+                            heapq.heappush(events, (min(t + 0.12 * D + 3.0, tk.end - 2.5 * bar), h))
                     return
 
         # ---- hits, hearts, deaths and revives, in time order
-        for t_star, h in events:
+        while events:
+            t_star, h = heapq.heappop(events)
             if h < 0:
                 heart(t_star)
                 continue
@@ -914,7 +923,7 @@ class Fight:
                 else:
                     s = self._aim("popper", sl["ts"], n, hx, 0.0, sl["seed"])
                     away = 190.0 if (hx < 700 if h == 0 else hx < 1000) else -190.0
-                    move = ("dash", Run(ta - 0.55, ta - 0.36, ta + 0.7, ta + 1.3, hx + away, float(y[0])))
+                    move = ("dash", Run(ta - 0.55, ta - 0.36, ta + 0.7, ta + 1.3, hx + away, float(y[0]), "dash"))
                 s.who, s.role = h, "dodge"
                 s.life = self._life(s)
                 self._apply(h, move, True)
@@ -1205,6 +1214,13 @@ class Fight:
                     self.grazes.append((g[0], h, g[1], s))
         self.anomalies = bad
         self.grazes.sort(key=lambda g: g[0])
+        # the very closest shaves get a shout (not too often)
+        self.shouts = []
+        last = -1e9
+        for g in self.grazes:
+            if g[2] < 14.0 and g[0] - last > 20.0:
+                self.shouts.append((g[0], g[1], SHOUTS[int(h01(self.seed, "shout", round(g[0], 2)) * len(SHOUTS))]))
+                last = g[0]
 
     def _closest(self, s: Shot, h: int):
         tt = np.arange(0.0, s.life, 1 / 60)
@@ -1246,6 +1262,27 @@ class Fight:
             if r.t0 <= t < r.t1:
                 mv, dx = True, (1.0 if r.x > float(self.base(h, [r.t0])[0][0]) else -1.0)
         return float(x[0]), float(y[0]), mv, dx
+
+    def crouch_at(self, h: int, t: float) -> float:
+        return float(self.crouch(h, [t])[0])
+
+    def dash_at(self, h: int, t: float):
+        """(progress 0..1, direction) while a hero zips sideways out of a popper's way, else None."""
+        for r in self.runs[h]:
+            if r.kind == "dash" and r.t0 <= t < r.t1 + 0.12:
+                x0 = float(self.base(h, [r.t0])[0][0])
+                return (t - r.t0) / (r.t1 + 0.12 - r.t0), (1.0 if r.x > x0 else -1.0)
+        return None
+
+    def graze_at(self, h: int, t: float, window: float = 0.45, close: float = 34.0):
+        """The nearest near miss on hero h in the last `window` seconds: (age, distance) or None."""
+        best = None
+        for g in self.grazes:
+            if g[0] > t:
+                break
+            if g[1] == h and t - g[0] < window and g[2] < close and (best is None or g[2] < best[1]):
+                best = (t - g[0], g[2])
+        return best
 
     def jump_at(self, h: int, t: float):
         for j in self.jumps[h]:
@@ -1291,7 +1328,8 @@ class Fight:
             return []
         i1 = int(np.searchsorted(self._st, t, side="right"))
         i0 = int(np.searchsorted(self._st, t - 6.0))
-        return [s for s in self.shots[i0:i1] if t - s.ts < s.life + (0.18 if s.end in ("hit", "parry", "floor") else 0)]
+        tail = {"hit": 0.18, "parry": 0.18, "floor": 0.18, "pop": 0.6}
+        return [s for s in self.shots[i0:i1] if t - s.ts < s.life + tail.get(s.end, 0.0)]
 
     def active_bullets(self, t: float, travel: float = 0.42):
         if not len(self._bt):

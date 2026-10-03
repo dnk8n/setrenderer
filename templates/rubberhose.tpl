@@ -36,6 +36,7 @@ story:
   act_minutes: 10     # target act length; capped at one act per boss so each boss is beaten exactly once
   attack_rate: 1.0    # boss shots per bar, relative
   retake_weights: [0.12, 0.43, 0.33, 0.12]   # chance of 0, 1, 2 or 3 lost takes before a fight is won
+  sidekicks: true     # the bosses' sidekicks (runners to hop, flyers to duck, poppers to dash from)
 
 # all eight by default; a list picks and orders the pool
 bosses: [gramophone, sun, cloud, kettle, organ, octopus, jukebox, oak]
@@ -78,3 +79,4 @@ keywords:
   spooky:   {bosses: [organ, cloud, octopus]}
   flawless: {story.retake_weights: [1, 0, 0, 0]}
   hardcore: {story.retake_weights: [0, 0.2, 0.4, 0.4]}
+  nosidekicks: {story.sidekicks: false}

@@ -320,7 +320,7 @@ def _plan_checks(set_audio):
     parts = [p.strip() for p in title.split(" - ") if p.strip()]
     allowed = {"READY?", "KNOCKOUT!", "INTERMISSION", "FOLLOW THE BOUNCING BALL!", "THE END", "A RUBBER HOSE REVUE",
                "STARRING", "RING!", "MEOW!", "RIBBIT!", "GONG!", "HA HA!", "RIP", "LA", "DA", "DOO", "BOP", "HEY",
-               "CLANG!", "BOOM!", "ACHOO!", "?", *[f"TAKE {k}" for k in range(2, 10)],
+               "CLANG!", "BOOM!", "ACHOO!", "?", *[f"TAKE {k}" for k in range(2, 10)], *combat.SHOUTS,
                *story.EXCLAIM, *story.GO_WORDS, *parts, " - ".join(parts[1:]), f"{sc.names[0]} & {sc.names[1]}"}
     rounds = {f"ROUND {x.k + 1}: {bosses.BY_NAME[x.boss]['title']}" for x in P.acts}
     bad = sorted(s for s in seen_txt if s not in allowed and s not in rounds and not re.fullmatch(r"BPM \d+", s))
