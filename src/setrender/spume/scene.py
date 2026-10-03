@@ -77,7 +77,7 @@ class SpumeScene:
         fl = cfg.get("film", {}) or {}
         self.film_strength = float(fl.get("strength", 1.0))
         pu = cfg.get("pulse", {}) or {}
-        self.pump = float(pu.get("exposure", 0.12))
+        self.pump = float(pu.get("exposure", 0.16))
         self.punch = float(pu.get("punch", 0.035))
         self.aberr = float(pu.get("aberration", 1.0))
         self.bloom = float(cfg.get("bloom", 0.25))

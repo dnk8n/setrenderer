@@ -1,4 +1,4 @@
-# setrender: completeness criteria for spume.tpl (draft v1)
+# setrender: completeness criteria for spume.tpl (draft v1.1)
 
 `spume.tpl` shares the CLI, output format, reproducibility and performance rules of `CRITERIA.md` (A1–A21).
 This file adds what is specific to the spume brief (2026-10-03): a fourth template with full artistic licence
@@ -7,6 +7,11 @@ characters and no letters; for example an alien depiction of foam in all its twi
 of water and soap films, fading in and out of kaleidoscopes, with the earth's elements inside alternating
 bubbles. It is finished like the other templates: a full render of the trimmed Knisper set and a 30-second
 highlight reel.
+
+Draft v1.1 (2026-10-04) makes the measurements of S4, S6, S10, S12 and S13 precise after the first runs of
+the checks. Three of those changes make a check easier to pass: S6 ignores the recogniser reading chains of
+bubbles as digits, S10 doesn't judge bubbles under 3 px, and in S13 a section starting next to a breakdown's
+edge changes the look on that edge, and builds wind the vortex and the colour rather than speeding the dive.
 
 Each criterion is checked by an automated test (`S`) or a human checklist (`H`). It is complete when every `S`
 passes and every `H` is ticked. `tests/criteria_spume.py` runs the automated checks and writes
@@ -18,20 +23,20 @@ passes and every `H` is ticked. `tests/criteria_spume.py` runs the automated che
 - S3. Keywords, `--set` and `--seed` change the result. The same inputs give identical frames (A4, A14). A slice (`--start/--duration`) draws exactly the frames the full render has at those times.
 
 ## 2. Beat sync
-- S4. On a 60 s slice, the picture pulses within ±1 frame of at least 90% of the beats in bars where the kick plays, with a median offset of at most 1 frame (A6). Video and audio durations differ by at most 1 frame (A7).
+- S4. On a 60 s slice of the set (`--start/--duration`), the picture pulses within ±1 frame of at least 90% of the beats in bars where the kick plays, with a median offset of at most 1 frame (A6). Video and audio durations differ by at most 1 frame (A7).
 - S5. The same holds for the full 2 h render, with no drift at the end.
 
 ## 3. The brief: patterns only, recursive, psychedelic
-- S6. No letters: nothing in the engine draws text, and Apple's on-device text recogniser (Vision, accurate mode) finds no text in frames sampled every 10 s across the full render.
+- S6. No letters: nothing in the engine draws text, and Apple's on-device text recogniser (Vision, accurate mode) finds no word in frames sampled every 10 s across the full render. A word is three or more letters in a row, read with confidence 0.5 or more, that aren't all round shapes; the recogniser reads chains of bubbles as strings like `00 00` or `00100100`, so those readings are listed in the report but don't count.
 - S7. No characters: Apple's on-device face, human-body and animal detectors (Vision) find nothing in at least 99% of the same sampled frames, and never in two samples in a row.
 - S8. Recursive: in at least 95% of frames sampled across the full set, the picture shows patterns nested at least three levels deep (bubbles inside bubbles inside bubbles), read from the renderer's own depth layer. The camera dives continuously into the recursion: its zoom never runs backwards.
 - S9. Kaleidoscopes fade in and out: over the full set the mirror symmetry is on for between 25% and 75% of the time, switches on or off at least 30 times, uses at least four different fold counts, and every switch starts on a downbeat. In sampled frames where it is on, the picture matches itself rotated by one fold (correlation at least 0.9); where it is off, it does not.
-- S10. The elements: every bubble holds one of eight elements (fire, water, earth, air, metal, ice, lightning, magma), neighbouring bubbles never hold the same one, and all eight appear in every 10-minute window. The on-device sound classifier (Core ML) covers the whole set with a result at least every 2 s, and at least 6 element surges are cued by instruments it hears (brass to fire, keys to water, drums to earth...), each starting within 2 s of the sound.
+- S10. The elements: every bubble holds one of eight elements (fire, water, earth, air, metal, ice, lightning, magma), neighbouring bubbles in the same foam never hold the same one (judged from the renderer's id layer on frames every 10 s, for bubbles at least 3 px across), and all eight appear in every 10-minute window. The on-device sound classifier (Core ML) covers the whole set with a result at least every 2 s, and at least 6 element surges are cued by instruments it hears (brass to fire, keys to water, drums to earth...), each starting within 2 s of the sound.
 - S11. Vibrant, endless colour: film colours come from a spectral thin-film interference model, the median saturation of sampled frames is at least 0.45, and every minute of the set covers at least 10 of 12 hue sectors (each holding at least 1% of the pixels).
 
 ## 4. Following the music
-- S12. At least five audio features each drive a different layer of the picture (kick: bubble pulse and exposure; sub: film thickness and colour swell; bass: the glowing Plateau borders; low mids: the film's swirl; high mids: how fiercely the elements burn; highs: sparkle and fizz). Rendering each layer on its own over a 60 s slice, its on-screen activity correlates with its band at r ≥ 0.6 (A8, A9). Silent input gives a near-static picture (A10).
-- S13. The structure is heard: the look (motif, fold count, palette) changes at every section start, on a downbeat, with no motif twice in a row and all six motifs in the Knisper set. Every drop lands with a pop within 1 frame of its downbeat. Breakdowns of at least 8 bars slow the motion to under half the speed of the bars around them, and builds wind up (zoom speed and saturation rise across the build).
+- S12. At least five audio features each drive a different layer of the picture (kick: exposure pump, zoom punch and a turn of the camera; sub: how strongly the soap films show; bass: the neon in the Plateau borders; low mids: the films' swirl; high mids: how fiercely the elements burn; highs: sparkle and fizz). Rendering each layer on its own, with the picture held still while one band plays through a minute of the set (a minute without a breakdown), its on-screen activity (brightness, or for the swirl, motion) correlates with its band at r ≥ 0.6 (A8, A9). Silent input gives a near-static picture: under 35% of the motion with music (A10).
+- S13. The structure is heard: the look (motif, fold count, palette) changes at every section start, on a downbeat (where a section starts within 4 bars of a breakdown's edge, the change lands on that edge), with no motif twice in a row and all six motifs in the Knisper set. Every drop lands with a pop on the frame that holds its downbeat. Breakdowns of at least 8 bars slow the dive to under half the speed of the bars around them, and builds wind up (the vortex tightens and the colour saturates from the build's start to its end).
 
 ## 5. Distinct, reproducible, resumable, safe, fast enough
 - S14. Two different sets differ measurably (colour-histogram distance above the A17 threshold on sampled frames), and the same set rendered twice is identical (A14, A17).

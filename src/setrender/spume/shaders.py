@@ -135,6 +135,7 @@ struct Cell {
   elem: i32,          // element 0..7 (fire, water, earth, air, metal, ice, lightning, magma)
   depth: i32,         // level of the recursion this bubble sits at
   wall: f32,          // 1 for walls that are boundaries between levels (drawn thicker)
+  fid: f32,           // which foam the bubble belongs to (a hash of its path down the recursion)
 };
 
 fn look_a() -> Look {
@@ -167,7 +168,6 @@ fn foam_level(q: vec2<f32>, g: f32, lev: f32, L: Look, hole: f32, outer: f32) ->
       let cell = gi + vec2<f32>(f32(i), f32(j));
       let h = hash22(cell + vec2<f32>(lev * 17.3 + L.seed, lev * 5.1));
       let s = (cell + 0.5 + (h - 0.5) * 0.72) * g;
-      if (length(s) < hole + 0.35 * g) { continue; }
       let ci = vec2<i32>(i32(cell.x), i32(cell.y));
       let e = elem_of(ci.x, ci.y, L);
       var w = (hash21(cell + vec2<f32>(lev * 3.7, 9.1 + L.seed)) - 0.5) * 0.30 * g * g;
@@ -186,7 +186,6 @@ fn foam_level(q: vec2<f32>, g: f32, lev: f32, L: Look, hole: f32, outer: f32) ->
       if (i == 0 && j == 0) { continue; }
       let h = hash22(cell + vec2<f32>(lev * 17.3 + L.seed, lev * 5.1));
       let s = (cell + 0.5 + (h - 0.5) * 0.72) * g;
-      if (length(s) < hole + 0.35 * g) { continue; }
       let ci = vec2<i32>(i32(cell.x), i32(cell.y));
       let e = elem_of(ci.x, ci.y, L);
       var w = (hash21(cell + vec2<f32>(lev * 3.7, 9.1 + L.seed)) - 0.5) * 0.30 * g * g;
@@ -214,7 +213,7 @@ fn foam_level(q: vec2<f32>, g: f32, lev: f32, L: Look, hole: f32, outer: f32) ->
 
 fn motif_lather(p: vec2<f32>, L: Look) -> Cell {
   let K = L.m.x;            // each level sits inside the previous level's central bubble, K times smaller
-  let Rc = 2.08 / K;        // the central bubble is just big enough to fill the screen one level later
+  let Rc = 2.22 / K;        // the central bubble is just big enough to fill the screen one level later
   let n = floor(L.zoom);
   let f = L.zoom - n;
   var sc = pow(K, -f);      // level units per screen unit
@@ -254,8 +253,8 @@ fn motif_steiner(p: vec2<f32>, L: Look) -> Cell {
   let rm = (1.0 + ri) * 0.5;
   var c: Cell;
   var lev = 0;
-  var parent = imod(i32(L.eoff) + 5, 8);
   var stride = 0;
+  var fid = 0.0;
   loop {
     // a different eccentricity at each level (circles stay tangent under a disk automorphism)
     let ph = L.seed * 3.1 + f32(lev) * 2.4 + L.m.z;
@@ -271,6 +270,7 @@ fn motif_steiner(p: vec2<f32>, L: Look) -> Cell {
       sc = sc / ri;
       lev = lev + 1;
       stride = stride + 3;
+      fid = fract(fid * 7.13 + 0.17);
       continue;
     }
     let ang = atan2(w.y, w.x) - crot;
@@ -287,8 +287,8 @@ fn motif_steiner(p: vec2<f32>, L: Look) -> Cell {
         z = rot(crot) * ((w - cc) / rho);
         sc = sc / rho;
         lev = lev + 1;
-        parent = el;
         stride = stride + 3;
+        fid = fract(fid * 7.13 + f32(ki + 1) * 0.618 + 0.17);
         continue;
       }
       c.local = (w - cc) / rho;
@@ -298,9 +298,10 @@ fn motif_steiner(p: vec2<f32>, L: Look) -> Cell {
       c.elem = el;
       c.depth = lev;
       c.wall = 0.0;
+      c.fid = fid;
       return c;
     }
-    // the space between the chain, the inner bubble and the outer wall shows the parent's element
+    // the space between the chain, the inner bubble and the outer wall
     let e1 = d - rho;
     let e2 = r - ri;
     let e3 = 1.0 - r;
@@ -308,9 +309,11 @@ fn motif_steiner(p: vec2<f32>, L: Look) -> Cell {
     c.local = w * 0.85;
     c.size = 1.0 / sc;
     c.id = fract(f32(lev) * 0.37 + L.seed);
-    c.elem = parent;
+    // one step past this level's chain elements, so the gaps never match a bubble beside them
+    c.elem = imod(i32(L.eoff) + stride + m, 8);
     c.depth = lev;
     c.wall = select(0.0, 1.0, e2 < e1 || e3 < e1);
+    c.fid = fid;
     return c;
   }
   return c;
@@ -468,6 +471,7 @@ fn motif_raft(p: vec2<f32>, L: Look) -> Cell {
   var q = p * sc;
   var c: Cell;
   var lev = 0;
+  var fid = 0.0;
   loop {
     let hc = hex_cell(q);
     let v = hc.xy;
@@ -481,11 +485,13 @@ fn motif_raft(p: vec2<f32>, L: Look) -> Cell {
       q = v * K;
       sc = sc * K;
       lev = lev + 1;
+      fid = fract(fid * 7.13 + hash21(vec2<f32>(f32(i), f32(j)) + 0.5) + 0.17);
       continue;
     }
     // class 1 and 2 cells take elements from two disjoint halves of the eight, so neighbours differ
     let hh = hash21(vec2<f32>(f32(i), f32(j)) + lv * 1.31 + L.seed);
-    let e = imod(i32(L.eoff) + (cls - 1) + 2 * i32(floor(hh * 4.0)), 8);
+    var e = imod(i32(L.eoff) + (cls - 1) + 2 * i32(floor(hh * 4.0)), 8);
+    if (cls == 0) { e = -1; }    // the deepest windows: the recursion carries on below the pixel, as film
     c.local = v / max(length(v) + max(sd, 0.0), 1e-5);
     c.edge = sd / sc;
     c.size = (length(v) + max(sd, 0.0)) / sc;
@@ -493,6 +499,7 @@ fn motif_raft(p: vec2<f32>, L: Look) -> Cell {
     c.elem = e;
     c.depth = lev;
     c.wall = 0.0;
+    c.fid = fid;
     break;
   }
   return c;
@@ -515,8 +522,8 @@ fn motif_film(p: vec2<f32>, L: Look) -> Cell {
       let cell = gi + vec2<f32>(f32(i), f32(j));
       let hc = vec2<f32>(cell.x, wrap64(cell.y));
       let h = hash22(hc + L.seed * 1.9);
-      let ctr = cell + 0.5 + (h - 0.5) * 0.5;
-      let rad = 0.16 + 0.2 * hash21(hc + 4.4 + L.seed);
+      let ctr = cell + 0.5 + (h - 0.5) * 0.4;
+      let rad = 0.14 + 0.14 * hash21(hc + 4.4 + L.seed);
       let d = length(q - ctr) - rad;
       if (d < best) { best = d; bc = ctr; br = rad; bid = cell; }
     }
@@ -532,6 +539,7 @@ fn motif_film(p: vec2<f32>, L: Look) -> Cell {
     L2.seed = L.seed + hash21(bh);
     L2.zoom = wrap64(L.zoom * 0.5 + hash21(bh + 2.0) * 3.0);
     c = motif_lather(lq * 1.15, L2);
+    c.fid = fract(hash21(bh + 9.1) + 0.3);
     let s = g * br / 1.15;
     c.edge = min(c.edge * s, -best * g);
     if (-best * g < c.edge + 1e-5) { c.wall = 1.0; }
@@ -546,6 +554,7 @@ fn motif_film(p: vec2<f32>, L: Look) -> Cell {
   c.elem = -1;              // the film itself
   c.depth = 0;
   c.wall = 1.0;
+  c.fid = 0.0;
   return c;
 }
 
@@ -752,6 +761,7 @@ struct Shade {
   depth: f32,
   elem: f32,
   id: f32,
+  fid: f32,
 };
 
 fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
@@ -768,6 +778,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
   o.depth = f32(c.depth);
   o.elem = f32(c.elem);
   o.id = c.id;
+  o.fid = c.fid;
 
   let lr = min(length(c.local), 1.0);
   let r2 = lr * lr;
@@ -789,7 +800,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
     if (lod > 0.0) {
       interior = element(el, uvI, t + c.id * 17.0, pix, c.id, ie);
     }
-    interior = mix(elem_mean(el, c.id) * (0.6 + 0.6 * ie), interior, lod);
+    interior = mix(elem_mean(el, c.id) * (0.6 + 0.6 * ie), interior, lod) * (0.5 + 1.0 * highmid);
     // the inside of a dome is darker towards its rim
     interior = interior * (0.35 + 0.65 * nz * nz);
     if (surging) { interior = interior * (1.0 + 0.6 * u.fx.w); }
@@ -807,7 +818,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
   let fl = 40.0 * vec2<f32>(cos(sw * 0.01), sin(sw * 0.01));
   let w1 = fbm(fq + fl, fpix * 2.0, 4);
   let w2 = fbm(fq * 1.3 + 3.0 * (vec2<f32>(w1, -w1) - 0.25) - fl.yx * 0.8, fpix * 2.6, 5);
-  var nm = L.fbase + L.fswing * (w2 - 0.5) * 2.0 - c.local.y * 120.0 + 170.0 * sub;
+  var nm = L.fbase + L.fswing * (w2 - 0.5) * 2.0 - c.local.y * 120.0 + 70.0 * sub;
   if (el < 0) {
     // the giant film: bands from top to bottom, black film forming at the top where it drains thinnest
     let fp = rot(sw * 0.15) * p;
@@ -815,14 +826,14 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
     let g1 = fbm(fp * 0.9 + fl2, px * 0.9, 5);
     let g2 = fbm(fp * 1.4 + 2.5 * vec2<f32>(g1, 1.0 - g1) - fl2.yx * 1.3, px * 1.4, 6);
     let vort = sin(length(fp - vec2<f32>(0.6 * sin(sw * 0.3), 0.2)) * 9.0 - sw * 2.0 + g2 * 6.0);
-    nm = L.fbase + L.fswing * ((g2 - 0.5) * 2.4 + 0.18 * vort) - p.y * 230.0 + 170.0 * sub;
+    nm = L.fbase + L.fswing * ((g2 - 0.5) * 2.4 + 0.18 * vort) - p.y * 230.0 + 70.0 * sub;
   }
   nm = max(nm, 0.0);
   let cos_t = sqrt(max(1.0 - r2 / (1.335 * 1.335), 0.0));
   var fc = film_rgb(nm * cos_t, 0.0);
   fc = max(mix(vec3<f32>(luma(fc)), fc, 1.6), vec3<f32>(0.0));
   fc = max(hue(fc, L.hue), vec3<f32>(0.0)) * u.light.rgb;
-  let fstr = u.dbg.w * (0.45 + 1.0 * sub) * u.lay.x;
+  let fstr = u.dbg.w * (0.3 + 1.2 * sub) * u.lay.x;
   var col = interior * (1.0 - 0.55 * filmw * min(fstr, 1.0)) + fc * filmw * fstr * 0.6;
   if (el < 0) {
     // black film is truly dark: the thinnest film reflects almost nothing
@@ -845,7 +856,8 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
   let fr = 0.07 + 0.12 * hash21(fi + 3.1);
   let on = step(0.6, hash21(fi + 7.7));
   let ring = smoothstep(max(0.025, fpix * 8.0 * 1.5), 0.0, abs(length(ff) - fr)) * on;
-  let twk = pow(hash21(fi + floor(t * 8.0) + 1.3), 8.0) * smoothstep(0.12, 0.0, length(ff));
+  let twk = pow(0.5 + 0.5 * sin(t * (5.0 + 6.0 * hash21(fi + 1.3)) + hash21(fi + 2.9) * 6.28), 12.0)
+            * smoothstep(0.12, 0.0, length(ff));
   let sp = (ring * 0.5 + twk * 1.5) * (0.1 + 1.5 * high) * clamp(1.0 - fpix * 60.0, 0.0, 1.0) * select(1.0, 0.0, el < 0);
   col = col + vec3<f32>(0.9, 0.95, 1.0) * sp * u.lay.w;
 
@@ -870,7 +882,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
 fn render_look(p0: vec2<f32>, L: Look) -> Shade {
   if (L.motif == 9) {
     // the dark before the first bubble and after the last
-    return Shade(vec3<f32>(0.0), 0.0, -1.0, 0.0);
+    return Shade(vec3<f32>(0.0), 0.0, -1.0, 0.0, 0.0);
   }
   var p = p0 * (1.0 - u.ext.z * u.aud.x);                // punch in on the kick
   p = rot(L.cam) * p;
@@ -943,7 +955,7 @@ fn fs_scene(i: FOut) -> @location(0) vec4<f32> {
       rim = exp(-abs(d) / 0.02) * 0.8;
     }
     s.col = mix(A.col, B.col, m);
-    if (m > 0.5) { s.depth = B.depth; s.elem = B.elem; s.id = B.id; }
+    if (m > 0.5) { s.depth = B.depth; s.elem = B.elem; s.id = B.id; s.fid = B.fid; }
     let rc = film_rgb(300.0 + 500.0 * fract(length(p) * 0.4 + u.clk.x * 0.1), 0.0);
     s.col = s.col + mix(vec3<f32>(luma(rc)), rc, 1.6) * rim * 1.4 * u.lay.x;
   }
@@ -952,7 +964,8 @@ fn fs_scene(i: FOut) -> @location(0) vec4<f32> {
     // ids for the criteria: depth, element and the bubble's hash, exact in 8 bits
     let d = clamp(s.depth, 0.0, 15.0);
     let e = select(s.elem, 8.0, s.elem < 0.0);
-    return vec4<f32>((d * 16.0 + 8.0) / 255.0, (e * 16.0 + 8.0) / 255.0, floor(s.id * 255.0) / 255.0, 1.0);
+    return vec4<f32>((d * 16.0 + 8.0) / 255.0, (e * 16.0 + 8.0) / 255.0, floor(s.id * 255.0) / 255.0,
+                     floor(s.fid * 255.0) / 255.0);
   }
   // pop: a burst of light and a ring that runs out from the centre
   let age = u.fx.x;
@@ -1013,12 +1026,13 @@ fn aces(x: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs_post(i: FOut) -> @location(0) vec4<f32> {
   if (i32(u.dbg.x + 0.5) == 1) {
-    return vec4<f32>(textureLoad(src, vec2<i32>(i.pos.xy), 0).rgb, 1.0);
+    return textureLoad(src, vec2<i32>(i.pos.xy), 0);
   }
   let uv = i.uv;
   let ctr = uv - 0.5;
   // chromatic aberration: the colours of a prism, stronger at the edges and on the bass
-  let ca = u.post.y * vec2<f32>(ctr.x * u.res.w, ctr.y) * length(ctr) * 0.02;
+  let rpx = length(vec2<f32>(ctr.x * u.res.w, ctr.y));          // distance from the centre, square pixels
+  let ca = u.post.y * ctr * rpx * 0.02;
   var c = vec3<f32>(textureSampleLevel(src, smp, uv + ca, 0.0).r,
                     textureSampleLevel(src, smp, uv, 0.0).g,
                     textureSampleLevel(src, smp, uv - ca, 0.0).b);
@@ -1031,7 +1045,7 @@ fn fs_post(i: FOut) -> @location(0) vec4<f32> {
   let l = luma(c);
   c = clamp(mix(vec3<f32>(l), c, u.light.w), vec3<f32>(0.0), vec3<f32>(1.0));
   c = c * c * (3.0 - 2.0 * c) * 0.35 + c * 0.65;
-  let v = 1.0 - u.post.z * pow(length(ctr * vec2<f32>(1.0, 0.75)) * 1.25, 2.6);
+  let v = 1.0 - u.post.z * pow(rpx / (0.5 * u.res.w) * 0.95, 2.6);
   c = c * clamp(v, 0.0, 1.0) * (1.0 - u.dbg.z);
   return vec4<f32>(c, 1.0);
 }
@@ -1063,6 +1077,7 @@ fn fs_uv(i: FOut) -> @location(0) vec4<f32> {
 
 @fragment
 fn fs_rgba(i: FOut) -> @location(0) vec4<f32> {
-  return vec4<f32>(textureLoad(fin, vec2<i32>(i.pos.xy), 0).rgb, 1.0);
+  let c = textureLoad(fin, vec2<i32>(i.pos.xy), 0);
+  return vec4<f32>(c.rgb, select(1.0, c.a, i32(u.dbg.x + 0.5) == 1));
 }
 """

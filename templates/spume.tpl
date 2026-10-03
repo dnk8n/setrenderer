@@ -47,7 +47,7 @@ colour:
   hue_spread: 0.06        # how far each set may nudge each element's colours
 
 pulse:
-  exposure: 0.12          # brightness lift on each kick
+  exposure: 0.16          # brightness lift on each kick
   punch: 0.035            # zoom punch on each kick
   aberration: 1.0         # prism fringes with the bass and kick
 

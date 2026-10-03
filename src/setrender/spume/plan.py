@@ -43,7 +43,7 @@ ELEMENT_SOUNDS = {
     "metal": ["cymbal", "gong", "glockenspiel", "bell", "cowbell", "ringtone", "telephone", "telephone_bell_ringing",
               "singing_bowl", "chime", "wind_chime", "tuning_fork"],
     "ice": ["violin_fiddle", "bowed_string_instrument", "cello", "string_section", "orchestra", "zither"],
-    "lightning": ["theremin", "reverse_beeps", "disc_scratching", "beep", "siren"],
+    "lightning": ["theremin", "reverse_beeps", "beep", "siren", "synthesizer_arpeggio"],
     "magma": ["organ", "hammond_organ", "electronic_organ", "rapping", "power_tool"],
 }
 SOUND_ELEMENT = {lab: ELEMENTS.index(e) for e, labs in ELEMENT_SOUNDS.items() for lab in labs}
@@ -141,7 +141,7 @@ def make_look(motif: int, r: np.random.Generator, cfg: dict, folds: int = 0) -> 
     elif motif == 4:
         k = float(r.choice([4.5, 5.0]))
         lk.m = (k, 0.0, 0.0, 0.0)
-        lk.density = 2.4 / k + 0.02
+        lk.density = 2.55 / k + 0.02         # big enough that the next raft fills the screen when the dive gets there
     elif motif == 5:
         lk.fbase = thick - 150.0 + float(r.uniform(-40, 40))
         lk.fswing = float(r.uniform(260, 340))
@@ -174,10 +174,11 @@ def plan(an, st: Structure, cfg: dict, seed: int, extras: dict | None, fps: floa
         first = 0.0
     intro_end = min(dur, first + 4 * bar)
     P.intro = (0.0, intro_end)
-    # outro: the last bubble collapses over eight bars and pops
-    k_out = int(np.searchsorted(db, dur - 26.0)) if len(db) else 0
-    out0 = float(db[k_out]) if 0 < k_out < len(db) else max(intro_end, dur - 26.0)
-    out1 = min(dur - 1.0, out0 + 8 * bar)
+    # outro: the last bubble collapses (over up to eight bars) and pops; a short file gets a short ending
+    tail = min(26.0, max(2 * bar, 0.08 * dur))
+    k_out = int(np.searchsorted(db, dur - tail)) if len(db) else 0
+    out0 = float(db[k_out]) if 0 < k_out < len(db) else max(intro_end, dur - tail)
+    out1 = min(dur - 0.6, out0 + 8 * bar)
     if out0 <= intro_end + 4 * bar:          # very short audio: no separate outro
         out0, out1 = dur, dur
     P.outro = (out0, out1)
@@ -186,13 +187,34 @@ def plan(an, st: Structure, cfg: dict, seed: int, extras: dict | None, fps: floa
     P.calm_spans = [(b.t0, b.t1) for b in st.breakdowns if b.t1 - b.t0 >= 8 * bar - 0.05]
     P.build_spans = [(b.t0, b.t1) for b in st.builds]
 
-    # ---- looks: one per section, phrase-level kaleidoscope and element changes inside it
-    secs = [s for s in an.sections if intro_end - 1e-6 <= s < out0 - 2 * bar] if len(an.sections) else []
-    secs = sorted(set([snap(s) for s in secs]))
-    starts = [intro_end] + [s for s in secs if s > intro_end + 4 * bar - 1e-6]
-    drops = [snap(d.t0) for d in st.drops if intro_end + bar <= d.t0 < out0 - bar]
+    # ---- looks: a motif per segment (sections, split at long breakdowns and every couple of minutes),
+    # phrase-level kaleidoscope and element changes inside it, and a pop into a fresh arrangement on drops
+    drops = [snap(d.t0) for d in st.drops if intro_end + 2 * bar <= d.t0 < out0 - 2 * bar]
     P.pops = sorted(set(drops))
-    longcalm = [(a, b) for a, b in P.calm_spans if b - a >= 16 * bar - 0.05]
+    longcalm = [(snap(a), snap(b)) for a, b in P.calm_spans if b - a >= 16 * bar - 0.05]
+    longcalm = [(a, b) for a, b in longcalm if a >= intro_end and b <= out0 - 2 * bar and b - a >= 12 * bar]
+    secs = [snap(s) for s in an.sections if intro_end + 4 * bar <= s < out0 - 4 * bar] if len(an.sections) else []
+    cuts = sorted(set(secs + [a for a, _ in longcalm] + [b for _, b in longcalm]))
+    seg = [intro_end]
+    for c in cuts:
+        if c - seg[-1] >= 4 * bar - 1e-6:
+            seg.append(c)
+    seg.append(out0)
+    # long segments are split on phrases about every two minutes
+    phr = np.asarray(st.phrases, float)
+    split = [seg[0]]
+    for s0, s1 in zip(seg[:-1], seg[1:]):
+        t = s0
+        while s1 - t > 150.0:
+            want = t + 120.0
+            cand = phr[(phr > t + 60.0) & (phr < s1 - 30.0)] if len(phr) else np.zeros(0)
+            nxt = float(cand[np.argmin(np.abs(cand - want))]) if len(cand) else snap(want)
+            if nxt <= t + 4 * bar or nxt >= s1 - 4 * bar:
+                break
+            split.append(nxt)
+            t = nxt
+        split.append(s1)
+    seg = split
 
     def energy(t0, t1):
         if not len(db):
@@ -205,17 +227,15 @@ def plan(an, st: Structure, cfg: dict, seed: int, extras: dict | None, fps: floa
     r.shuffle(order)
     last_motif = -1
     used: dict[int, int] = {}
-    kal_on = False
     spans: list[Span] = []
-    starts_set = list(starts) + [out0]
-    for si, (s0, s1) in enumerate(zip(starts_set[:-1], starts_set[1:])):
+    for si, (s0, s1) in enumerate(zip(seg[:-1], seg[1:])):
         en = energy(s0, s1)
-        calm_here = any(a <= s0 + bar and b >= min(s1, s0 + 16 * bar) - bar for a, b in longcalm)
+        calm_here = any(a - bar <= s0 and s1 <= b + bar for a, b in longcalm)
         # the giant film for long breakdowns; otherwise the least used motif that isn't the last one
         if calm_here and 5 in pool and last_motif != 5:
             m = 5
         else:
-            cand = [x for x in order if x != last_motif and (x != 5 or en < 0.45 or len(pool) <= 2)] or \
+            cand = [x for x in order if x != last_motif and (x != 5 or len(pool) <= 2)] or \
                 [x for x in order if x != last_motif] or order
             m = min(cand, key=lambda x: (used.get(x, 0), order.index(x)))
         used[m] = used.get(m, 0) + 1
@@ -231,21 +251,29 @@ def plan(an, st: Structure, cfg: dict, seed: int, extras: dict | None, fps: floa
             kind, tdur = IRIS, max(intro_end - first, bar)
         spans.append(Span(t0=s0 if si else first, look=look, kind=kind, dur=tdur,
                           why="drop" if is_drop else ("intro" if si == 0 else "section"), section=si))
-        # phrases inside the section: kaleidoscopes fade in and out, the elements trade places
-        ph = [p for p in st.phrases if s0 + 4 * bar <= p < s1 - 4 * bar]
+        # phrases inside the segment: kaleidoscopes fade in and out, the elements trade places; drops pop
+        ph = [(p, False) for p in st.phrases if s0 + 4 * bar <= p < s1 - 4 * bar]
+        ph += [(d, True) for d in P.pops if s0 + 2 * bar <= d < s1 - 2 * bar]
+        ph.sort()
         prev = look
-        for pk, p0 in enumerate(ph):
+        last_t = s0
+        for pk, (p0, drop) in enumerate(ph):
             rp = np.random.default_rng([seed, si, pk, 29])
-            if m == 5 or rp.random() > 0.55:
+            if p0 - last_t < 2 * bar or (not drop and (m == 5 or rp.random() > 0.55)):
                 continue
             nl = Look(**{**prev.__dict__})
             nl.eoff = (prev.eoff + int(rp.integers(1, 8))) % 8
-            want_on = rp.random() < share * (0.7 + 0.6 * energy(p0, p0 + 8 * bar))
+            want_on = m != 5 and rp.random() < share * (0.7 + 0.6 * energy(p0, p0 + 8 * bar))
             nl.folds = int(rp.choice([f for f in folds_pool if f != prev.folds] or folds_pool)) if want_on else 0
             nl.hue = float(np.clip(prev.hue + rp.uniform(-0.05, 0.05), -0.12, 0.12))
-            spans.append(Span(t0=p0, look=nl, kind=MELT if rp.random() < 0.5 else DISSOLVE, dur=bar,
-                              why="kaleidoscope" if (nl.folds > 0) != (prev.folds > 0) else "phrase", section=si))
+            if drop:
+                kd, dd, why = POP, 0.5 * bar, "drop"
+            else:
+                kd, dd = (MELT if rp.random() < 0.5 else DISSOLVE), bar
+                why = "kaleidoscope" if (nl.folds > 0) != (prev.folds > 0) else "phrase"
+            spans.append(Span(t0=p0, look=nl, kind=kd, dur=dd, why=why, section=si))
             prev = nl
+            last_t = p0
     void = Look(motif=VOID, seed=0.0)
     spans.insert(0, Span(t0=-1.0, look=void, kind=DISSOLVE, dur=0.0, why="dark"))
     spans.append(Span(t0=out0, look=void, kind=COLLAPSE, dur=max(out1 - out0, 1e-3), why="the end"))
@@ -271,9 +299,23 @@ def plan(an, st: Structure, cfg: dict, seed: int, extras: dict | None, fps: floa
     from scipy import ndimage
     loud_s = ndimage.uniform_filter1d(loud, int(RATE * 2))
     lpb = float((cfg.get("dive", {}) or {}).get("levels_per_bar", 0.12))
-    rate = lpb / bar * (0.35 + 0.9 * be) * (1.0 - 0.75 * calm) * (1.0 + 1.6 * build) * (0.08 + 0.92 * np.clip(loud_s * 1.6, 0, 1))
+    rate = lpb / bar * (0.35 + 0.9 * be) * (0.08 + 0.92 * np.clip(loud_s * 1.6, 0, 1))
+    # the dive slows right down in breakdowns, to under a third of the music around them (their builds
+    # wind the vortex and the colour instead)
+    slow = rate.copy()
+    for a, b in P.calm_spans:
+        near = (((tt >= a - 8 * bar) & (tt < a)) | ((tt >= b) & (tt < b + 8 * bar))) & (calm == 0)
+        ref = float(rate[near].mean()) if near.any() else float(rate.mean())
+        span = (tt >= a) & (tt < b)
+        slow[span] = np.minimum(slow[span], 0.3 * ref)
+    rate = rate * (1.0 - calm) + slow * calm
     P.zoom = np.concatenate([[0.0], np.cumsum(rate[:-1]) / RATE])
-    sw_rate = (0.15 + 1.6 * ndimage.uniform_filter1d(lowmid, int(RATE * 0.3))) * (1.0 - 0.4 * calm) * (0.1 + 0.9 * np.clip(loud_s * 1.6, 0, 1))
+    # the films swirl with the low mids, followed with the template's own attack and release (silence leaves
+    # them nearly still)
+    from ..timeline import _attack_release
+    att, rel = (cfg.get("smoothing", {}) or {}).get("lowmid", [0.02, 0.3])
+    lm_env = _attack_release(lowmid.astype(np.float64), RATE, float(att), float(rel))
+    sw_rate = (0.08 + 1.8 * lm_env) * (1.0 - 0.4 * calm)
     P.swirl = np.concatenate([[0.0], np.cumsum(sw_rate[:-1]) / RATE])
     ck = 0.12 + 0.88 * np.clip(loud_s * 1.5, 0, 1)
     P.clock = np.concatenate([[0.0], np.cumsum(ck[:-1]) / RATE])
@@ -327,7 +369,7 @@ def _surges(st: Structure, beats: np.ndarray, bar: float, t_min: float, t_max: f
         heard = ev.t0 + 1.5               # the centre of the first window where the classifier heard it
         if not (t_min + bar <= heard < t_max - 2 * bar):
             continue
-        if heard - last_any < 6.0 or heard - last_el.get(el, -1e9) < 40.0:
+        if heard - last_any < 12.0 or heard - last_el.get(el, -1e9) < 60.0:
             continue
         k = int(np.searchsorted(beats, heard)) if len(beats) else 0
         t0 = float(beats[k]) if k < len(beats) and beats[k] - heard < 1.0 else heard
