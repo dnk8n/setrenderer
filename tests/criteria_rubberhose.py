@@ -1,4 +1,4 @@
-"""Automated checks for CRITERIA-rubberhose.md. Run:
+"""Automated checks for docs/criteria/CRITERIA-rubberhose.md. Run:
 
     .venv/bin/python tests/criteria_rubberhose.py [SET_AUDIO] [--full out/knisper_rubberhose.mov]
         [--reel "out/<set>.rubberhose_highlights.mp4"] [--only R7,R9]
@@ -141,7 +141,7 @@ def main():
     report = {k: results[k] for k in order if k in results}
     (W / ("report.json" if only is None else "report-partial.json")).write_text(json.dumps(report, indent=2, default=str))
     npass = sum(r["pass"] for r in report.values())
-    print(f"\n{npass}/{len(report)} automated checks pass. Human checklist H1-H6: see CRITERIA-rubberhose.md")
+    print(f"\n{npass}/{len(report)} automated checks pass. Human checklist H1-H6: see docs/criteria/CRITERIA-rubberhose.md")
     return 0 if npass == len(report) else 1
 
 

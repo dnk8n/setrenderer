@@ -1,4 +1,4 @@
-"""Automated checks for CRITERIA-cropcircle.md. Run:
+"""Automated checks for docs/criteria/CRITERIA-cropcircle.md. Run:
 
     .venv/bin/python tests/criteria_cropcircle.py [SET_AUDIO] [--full out/knisper_cropcircle.mov]
 
@@ -134,7 +134,7 @@ def main():
     report = {k: results[k] for k in order if k in results}
     (W / ("report.json" if only is None else "report-partial.json")).write_text(json.dumps(report, indent=2, default=str))
     npass = sum(r["pass"] for r in report.values())
-    print(f"\n{npass}/{len(report)} automated checks pass. Human checklist H1-H7: see CRITERIA-cropcircle.md")
+    print(f"\n{npass}/{len(report)} automated checks pass. Human checklist H1-H7: see docs/criteria/CRITERIA-cropcircle.md")
     return 0 if npass == len(report) else 1
 
 

@@ -1,4 +1,4 @@
-"""Automated completeness checks (see CRITERIA.md). Run:  .venv/bin/python tests/criteria.py [SET_AUDIO]
+"""Automated completeness checks (see docs/criteria/CRITERIA.md). Run:  .venv/bin/python tests/criteria.py [SET_AUDIO]
 
 Writes work/criteria/report.json and prints a table. Human (H) items are listed for manual sign-off.
 """
@@ -280,7 +280,7 @@ def main():
 
     (W / "report.json").write_text(json.dumps(results, indent=2, default=str))
     n = sum(r["pass"] for r in results.values())
-    print(f"\n{n}/{len(results)} automated checks pass. Human checklist H1-H6: see CRITERIA.md")
+    print(f"\n{n}/{len(results)} automated checks pass. Human checklist H1-H6: see docs/criteria/CRITERIA.md")
     return 0 if n == len(results) else 1
 
 

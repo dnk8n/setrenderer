@@ -1,4 +1,4 @@
-"""Automated checks against CRITERIA.md for a rendered video."""
+"""Automated checks against docs/criteria/CRITERIA.md for a rendered video."""
 from __future__ import annotations
 
 import json
