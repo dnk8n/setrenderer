@@ -53,7 +53,7 @@ The GPU templates also run an **extras** pass over the whole set: Apple's built-
 
 **The seed** is a hash of the audio's SHA-256, the template name, the keywords and `--seed`. Everything random in a render comes from it. That one choice gives both of the properties people care about: the same inputs always give the same video, and different sets always look different.
 
-**Engine planning** is where templates differ. knisper picks palettes, sky and floor styles per section and builds its crowd. cropcircle writes schedules for 110 people (arrive, dance, queue, sit, leave), cuts camera shots on phrases and drops, and places events by structure, sounds and bar numbers. rubberhose plans the whole cartoon up front: acts at section starts, takes, boss phases, every shot and its outcome, intermissions in the breakdowns and an easter egg every minute. spume plans its motifs by section, its kaleidoscopes by phrase and its pops by drop, and integrates the dive into the recursion, the camera's turn and the films' swirl over the whole set, so any frame knows how far the camera has fallen.
+**Engine planning** is where templates differ. knisper picks palettes, sky and floor styles per section and builds its crowd. cropcircle writes schedules for 110 people (arrive, dance, queue, sit, leave), cuts camera shots on phrases and drops, and places events by structure, sounds and bar numbers. rubberhose plans the whole cartoon up front: acts at section starts, takes, boss phases, every shot and its outcome, intermissions in the breakdowns and an easter egg every minute. spume plans its motifs by section, its kaleidoscopes by phrase and its pops by drop, and integrates the dive into the recursion, the camera's turn and the films' swirl over the whole set, so any frame knows how far the camera has fallen. cymatics plans a station per section and a mode per phrase from a harmonic of the key's root, with sweeps in the builds, overdrives on the drops and rest in the breakdowns, and integrates the camera's orbit and the patterns' drift over the whole set.
 
 ## 3. Draw
 
@@ -61,10 +61,10 @@ Every frame is a **pure function of its index**: `frame(i)` reads the plan and t
 
 - frames can be drawn in any order, so chunks render in parallel processes,
 - an interrupted render resumes anywhere and matches an uninterrupted one bit for bit,
-- a slice of a rubberhose or spume render (which plan in absolute set time) is exactly those frames of the full render, which is what makes reels and previews cheap,
+- a slice of a rubberhose, spume or cymatics render (which plan in absolute set time) is exactly those frames of the full render, which is what makes reels and previews cheap,
 - determinism is testable: render twice, compare frame hashes.
 
-There are four engines, chosen by a template's `engine:` key:
+There are five engines, chosen by a template's `engine:` key:
 
 | Engine | Used by | How it draws |
 |---|---|---|
@@ -72,6 +72,7 @@ There are four engines, chosen by a template's `engine:` key:
 | `cropcircle` | cropcircle | wgpu (WebGPU on Metal): supersampled HDR 3D, instanced corn, pixel-art billboards, volumetric beams, fog, bloom, ACES tone mapping and a 5-bit ordered dither, at 640x360 |
 | `rubberhose` | rubberhose | wgpu: signed-distance shapes on instanced quads at the output resolution, ink and paint shading, line boil on a 24-drawings-per-second clock locked to the beat, a film-print pass, and BT.709 NV12 conversion on the GPU |
 | `spume` | spume | wgpu: one full-screen WGSL shader per frame at the output resolution: recursive foams (power diagrams, Möbius maps, hyperbolic reflections, log-polar spirals), soap films coloured from a spectral thin-film interference table, eight procedural elements, bloom, and BT.709 NV12 conversion on the GPU |
+| `cymatics` | cymatics | wgpu: one full-screen WGSL shader per frame at the output resolution: sand grains on a Chladni plate's nodal lines, analytic Faraday waves, a ray-marched ferrofluid height field, flames and water in a plane under a perspective camera, Lissajous figures solved per pixel, lit by an analytic studio; depth of field and a rack focus from a per-pixel circle of confusion, bloom, and BT.709 NV12 conversion on the GPU |
 
 ## 4. Encode
 

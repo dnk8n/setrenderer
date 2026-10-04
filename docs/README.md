@@ -5,7 +5,7 @@ Start where you are, go as deep as you like. Each page links to the next layer d
 | Layer | Page | For when you want to... |
 |---|---|---|
 | **Try it** | [Getting started](getting-started.md) | install, make a first preview, render a whole set and upload it, with every step explained |
-| **See it** | [Templates](templates/README.md): [knisper](templates/knisper.md), [cropcircle](templates/cropcircle.md), [rubberhose](templates/rubberhose.md), [spume](templates/spume.md) | see what each world does, what moves to what, its keywords and its easter eggs |
+| **See it** | [Templates](templates/README.md): [knisper](templates/knisper.md), [cropcircle](templates/cropcircle.md), [rubberhose](templates/rubberhose.md), [spume](templates/spume.md), [cymatics](templates/cymatics.md) | see what each world does, what moves to what, its keywords and its easter eggs |
 | **Use it** | [Cookbook](cookbook.md) | find a recipe: looks, 4K, phones, lossless, long renders, reels, batches, checking a video |
 | **Look it up** | [Reference](reference.md) | every command, option, default, output file and template key |
 | **Understand it** | [How it works](how-it-works.md) | follow a set through the pipeline and learn why it is built this way |
