@@ -66,7 +66,7 @@ Output goes to `out/` and scratch work to `work/`, both ignored. For test audio,
 ```
 setrender/
 ├── install.sh, pyproject.toml, requirements.lock   install and pinned dependencies
-├── templates/              knisper.tpl, cropcircle.tpl, rubberhose.tpl (YAML)
+├── templates/              knisper.tpl, cropcircle.tpl, rubberhose.tpl, spume.tpl (YAML)
 ├── src/setrender/
 │   ├── cli.py              commands, CPU budget, chunked resumable rendering, the receipt
 │   ├── config.py           template loading and precedence (template < --params < -k < --set)
@@ -80,7 +80,8 @@ setrender/
 │   ├── scene.py, sprites.py     the pixel engine (knisper)
 │   ├── gpu/                shared wgpu engine, meshes, camera, shaders
 │   ├── crop/               the cropcircle engine: world, cast, crowd, director, events, HUD, sound classifier
-│   └── hose/               the rubberhose engine: story, combat, heroes, bosses, stages, gags, eggs, ink, shaders
+│   ├── hose/               the rubberhose engine: story, combat, heroes, bosses, stages, gags, eggs, ink, shaders
+│   └── spume/              the spume engine: plan, thin-film colour, the WGSL shader, the GPU engine
 ├── tests/                  criteria check scripts, one per criteria file
 └── docs/                   user and developer docs, criteria and reports, screenshots
 ```
@@ -115,9 +116,9 @@ setrender verify work/slice.mov --audio set.wav --start 600 --duration 30
 
 ```bash
 SET=/path/to/set.wav
-for t in knisper cropcircle rubberhose; do setrender still "$SET" -t $t --at 600,3600 -o work/regress/before_$t.png; done
+for t in knisper cropcircle rubberhose spume; do setrender still "$SET" -t $t --at 600,3600 -o work/regress/before_$t.png; done
 # ...make your change...
-for t in knisper cropcircle rubberhose; do setrender still "$SET" -t $t --at 600,3600 -o work/regress/after_$t.png; done
+for t in knisper cropcircle rubberhose spume; do setrender still "$SET" -t $t --at 600,3600 -o work/regress/after_$t.png; done
 for f in work/regress/before_*; do cmp -s "$f" "${f/before/after}" && echo "same     $f" || echo "CHANGED  $f"; done
 ```
 

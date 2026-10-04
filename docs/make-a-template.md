@@ -73,7 +73,7 @@ That's a new world. To use it by name (`-t myrave`), put it in `templates/`. To 
 
 ## Tweaking the GPU templates
 
-cropcircle and rubberhose work the same way with their own keys: crowd size and kinds, events per hour, camera pace, fog and aurora (cropcircle); bosses, act length, attack rate, retakes, film grade, grain and line boil (rubberhose). Their [template pages](templates/README.md) list the keys and the names you can use. Their `mapping:` blocks document the built-in wiring rather than control it (the GPU engines don't read them), so rewiring those means changing the engine. `smoothing:` works for every template.
+cropcircle, rubberhose and spume work the same way with their own keys: crowd size and kinds, events per hour, camera pace, fog and aurora (cropcircle); bosses, act length, attack rate, retakes, film grade, grain and line boil (rubberhose); motifs, dive speed, kaleidoscope share and folds, twist, film thickness and strength, saturation and the key's light (spume). Their [template pages](templates/README.md) list the keys and the names you can use. Their `mapping:` blocks document the built-in wiring rather than control it (the GPU engines don't read them), so rewiring those means changing the engine. `smoothing:` works for every template.
 
 ## Make a world from a description
 

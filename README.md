@@ -24,23 +24,25 @@
   <img alt="Output: YouTube-ready 1080p60" src="https://img.shields.io/badge/output-YouTube%20ready%201080p60-c00?logo=youtube&logoColor=white">
   <img alt="Runs locally, no cloud" src="https://img.shields.io/badge/runs-100%25%20local-2a7">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="docs/criteria/README.md"><img alt="Definition of done: automated checks" src="https://img.shields.io/badge/definition%20of%20done-55%20automated%20checks-6a5acd"></a>
+  <a href="docs/criteria/README.md"><img alt="Definition of done: automated checks" src="https://img.shields.io/badge/definition%20of%20done-73%20automated%20checks-6a5acd"></a>
 </p>
 
 ---
 
-## Three worlds, one command
+## Four worlds, one command
 
 <table>
   <tr>
-    <td width="33%"><a href="docs/templates/knisper.md"><img src="docs/media/knisper.jpg" alt="knisper: pixel-art crowd dancing in front of a burned-out car DJ stage"></a></td>
-    <td width="33%"><a href="docs/templates/cropcircle.md"><img src="docs/media/cropcircle.jpg" alt="cropcircle: a 3D crowd of pixel people at night under an aurora, jellyfish glowing in the trees"></a></td>
-    <td width="33%"><a href="docs/templates/rubberhose.md"><img src="docs/media/rubberhose.jpg" alt="rubberhose: two cartoon heroes squaring up to a giant angry red teapot"></a></td>
+    <td width="25%"><a href="docs/templates/knisper.md"><img src="docs/media/knisper.jpg" alt="knisper: pixel-art crowd dancing in front of a burned-out car DJ stage"></a></td>
+    <td width="25%"><a href="docs/templates/cropcircle.md"><img src="docs/media/cropcircle.jpg" alt="cropcircle: a 3D crowd of pixel people at night under an aurora, jellyfish glowing in the trees"></a></td>
+    <td width="25%"><a href="docs/templates/rubberhose.md"><img src="docs/media/rubberhose.jpg" alt="rubberhose: two cartoon heroes squaring up to a giant angry red teapot"></a></td>
+    <td width="25%"><a href="docs/templates/spume.md"><img src="docs/media/spume.jpg" alt="spume: an eight-fold kaleidoscope of bubbles holding lightning around a ring of frost and smaller bubbles"></a></td>
   </tr>
   <tr>
     <td><b><a href="docs/templates/knisper.md">knisper</a></b><br>An 8-bit underground rave. A burned-out car is the DJ booth, jellyfish hang in blocky trees, and a crowd of every kind bounces on a lit dancefloor, with nods to the C64, Amiga, Mega Drive, N64 and NES.</td>
     <td><b><a href="docs/templates/cropcircle.md">cropcircle</a></b><br>A night at a farm festival, seen first-person in 3D, from sunset to sunrise. UFOs lay crop circles, a drone flies the fields, people arrive through the corn, dance, queue for the loos and go home.</td>
     <td><b><a href="docs/templates/rubberhose.md">rubberhose</a></b><br>A 1930s rubber-hose cartoon boss rush with original characters. One boss per act, hearts, ghosts, lost takes, super attacks on the drops, intermissions in the breakdowns and an easter egg every minute.</td>
+    <td><b><a href="docs/templates/spume.md">spume</a></b><br>Alien foam, falling forever into itself. Bubbles inside bubbles in the colours of real soap films, kaleidoscopes fading in and out, and fire, water, earth, air, metal, ice, lightning and magma in alternating bubbles. No characters, no letters.</td>
   </tr>
 </table>
 
@@ -89,6 +91,7 @@ New to the Terminal? **[Getting started](docs/getting-started.md)** walks throug
 ```bash
 setrender render set.wav -t rubberhose                          # the cartoon boss rush
 setrender render set.wav -t cropcircle -k aurora,packed         # keywords switch on looks
+setrender render set.wav -t spume -k mirror,acid                # psychedelic foam, kaleidoscopes all night
 setrender render set.wav -k acid --seed 3                       # another take on the same set
 setrender render set.wav --set elements.crowd.count=80          # change any value in a template
 setrender still  set.wav -t rubberhose --at 60,600,3600         # snapshots before you commit
@@ -124,6 +127,7 @@ Things to look out for, without spoiling all of them:
 - a skeleton playing its ribs at bar 1929 and a steamboat at bar 1928, for the cartoons of those years (rubberhose)
 - a film burn at bar 404, a ghost when it hears a theremin, and 26 kinds of easter egg, about one a minute and never the same one twice in ten minutes (rubberhose)
 - thirteen bosses, from a gramophone in a ballroom to a pig DJ who turns into a dragon (rubberhose)
+- light that changes colour with the key of the music, around the circle of fifths, and bubbles that blaze when the classifier hears their instrument: brass sets fire to them, keys turn them to water, bells to bismuth (spume)
 
 <p align="center">
   <img src="docs/media/rubberhose-moments.jpg" alt="Six rubberhose moments: the title card, a Super Art, a ghost floating up, a TAKE 2 clapperboard, a KNOCKOUT card and the overworld map" width="100%">
@@ -180,7 +184,7 @@ Ideas for new worlds, bug reports, docs fixes and code are all welcome, and so a
 | Tested on | macOS on Apple Silicon (M1 Pro, 16 GB) |
 | Other systems | untested; `knisper` with `--encoder x264` is the likeliest to work, and the sound-cued gags need macOS |
 | Disk | about 10 to 20 GB per two hours of 1080p60 at the default quality; the render checks before it starts |
-| Time for a 2 h set | about 40 min (knisper), 60 min (cropcircle) or 65 min (rubberhose) on an M1 Pro |
+| Time for a 2 h set | about 40 min (knisper), 60 min (cropcircle), 65 min (rubberhose) or 65 min (spume) on an M1 Pro |
 | Installs | ffmpeg (Homebrew), [uv](https://docs.astral.sh/uv/), and pinned Python packages in a local `.venv` |
 
 ## Credits

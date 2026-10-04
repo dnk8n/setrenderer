@@ -15,6 +15,8 @@ Most come from the trimmed Knisper 2026 set by Pepper & Pumpernickl. The tiles w
 | `rubberhose-moments.jpg` | the title card (`--at 2.5 --title "Pepper & Pumpernickl - Knisper 2026"`) and frames from the per-boss reel (`setrender reel <set> -t rubberhose --per-act --length 120`) |
 | `rubberhose-grades.jpg` | `setrender still <set> -t rubberhose --at 600` with `--set film.grade=` `twostrip`, `mono` and `clean`, then `-k spooky` and `-k party` |
 | `rubberhose-bosses.jpg` | six rubberhose stills from development of the round-three bosses, captioned |
+| `spume.jpg` | a frame of the full spume render of the trimmed set at 3625 s (`ffmpeg -ss 3625 -i out/knisper_spume.mov -frames:v 1`), scaled to 1280x720 |
+| `spume-motifs.jpg` | frames of the full spume render at 244.6, 315.4, 1138.6, 1868.6, 2547.9 and 2154.5 s, one per motif, labelled |
 | `two-sets.jpg` | `setrender still` at 25 s on two 30-second clips of the set (from 10 minutes and 1 h 50 m), with knisper and rubberhose |
 
 When a template's look changes, regenerate its images the same way so the docs stay true to what the code renders.

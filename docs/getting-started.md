@@ -52,7 +52,7 @@ Check that it works by listing the templates:
 .venv/bin/setrender templates
 ```
 
-You should see `cropcircle`, `knisper` and `rubberhose`, each with a description and its keywords.
+You should see `cropcircle`, `knisper`, `rubberhose` and `spume`, each with a description and its keywords.
 
 > **Shortcut:** run `source .venv/bin/activate` once per Terminal window and you can type `setrender` instead of `.venv/bin/setrender`. The rest of this guide uses the long form so it works either way.
 
@@ -121,7 +121,7 @@ When you like what you see, leave out `--start` and `--duration`. Add `--title` 
 .venv/bin/setrender render /path/to/your\ set.wav -t rubberhose --title "Pepper & Pumpernickl at Knisper 2026"
 ```
 
-Before it starts, setrender estimates the file size and checks you have room (a two-hour set is about 10 to 20 GB). On an M1 Pro a two-hour set takes roughly 40 minutes (knisper), an hour (cropcircle) or a little over an hour (rubberhose).
+Before it starts, setrender estimates the file size and checks you have room (a two-hour set is about 10 to 20 GB). On an M1 Pro a two-hour set takes roughly 40 minutes (knisper), an hour (cropcircle) or a little over an hour (rubberhose and spume).
 
 While it runs you can keep working. By default it keeps the machine's load average around 7 on an 8-core Mac and runs at low priority. If you want it gentler still, add `--cpu 4` (slower, quieter fans).
 
@@ -153,7 +153,7 @@ If you need a smaller file, render with `--audio-codec aac` for an MP4 with high
 | `not enough free disk space for this render` | Free some space, render a slice with `--duration`, use `--quality draft`, or add `--force` if you know the estimate is pessimistic (it asks for twice the final size, for the moment the pieces are joined). |
 | `holds a render with different settings; use --restart` | You changed a setting since a render to the same file was interrupted. Add `--restart` to throw the old pieces away, or use `-o` to write to a new file. |
 | The fans are loud or the Mac feels slow | Stop it with <kbd>Ctrl C</kbd> and rerun the same command with `--cpu 4`. It resumes where it stopped. |
-| A GPU template (cropcircle, rubberhose) fails to start | These need Metal, which every Apple Silicon Mac has. If you see a wgpu or adapter error, update macOS and try again, and please [open an issue](https://github.com/dnk8n/setrenderer/issues) with the full message. |
+| A GPU template (cropcircle, rubberhose, spume) fails to start | These need Metal, which every Apple Silicon Mac has. If you see a wgpu or adapter error, update macOS and try again, and please [open an issue](https://github.com/dnk8n/setrenderer/issues) with the full message. |
 
 ## Where to next
 

@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repository. Humans: the same r
 
 ## What this is
 
-setrender is a Python CLI that turns a DJ set (WAV or AIFF) into a beat-synced, YouTube-ready video styled by a template. It analyses the audio (librosa), plans per-frame signals, draws every frame as a pure function of its index (pygame-ce on the CPU, or wgpu on Metal), and encodes in resumable one-minute chunks with ffmpeg and Apple VideoToolbox. Templates are YAML files in `templates/`: `knisper` (8-bit rave, CPU), `cropcircle` (3D farm festival, GPU) and `rubberhose` (1930s cartoon boss rush, GPU). It targets macOS on Apple Silicon.
+setrender is a Python CLI that turns a DJ set (WAV or AIFF) into a beat-synced, YouTube-ready video styled by a template. It analyses the audio (librosa), plans per-frame signals, draws every frame as a pure function of its index (pygame-ce on the CPU, or wgpu on Metal), and encodes in resumable one-minute chunks with ffmpeg and Apple VideoToolbox. Templates are YAML files in `templates/`: `knisper` (8-bit rave, CPU), `cropcircle` (3D farm festival, GPU), `rubberhose` (1930s cartoon boss rush, GPU) and `spume` (recursive psychedelic foam, GPU). It targets macOS on Apple Silicon.
 
 ## Setup and commands
 
@@ -26,7 +26,7 @@ There is no unit-test suite; verification is stills, `verify`, and the criteria 
 - `src/setrender/cli.py`: commands, CPU budget (`plan_budget`), chunked resumable rendering, the JSON receipt
 - `src/setrender/config.py`: template loading; precedence is template < `--params` < `--keywords` < `--set`
 - `src/setrender/analysis.py`, `timeline.py`: audio analysis (cached by audio hash) and per-frame signals
-- `src/setrender/scenes.py`: engine registry; `scene.py` + `sprites.py` (pixel engine), `gpu/`, `crop/` (cropcircle), `hose/` (rubberhose)
+- `src/setrender/scenes.py`: engine registry; `scene.py` + `sprites.py` (pixel engine), `gpu/`, `crop/` (cropcircle), `hose/` (rubberhose), `spume/` (spume)
 - `src/setrender/encode.py`, `reel.py`, `verify.py`: ffmpeg arguments, highlight reels, video checks
 - `templates/*.tpl`: the templates; `tests/criteria*.py`: criteria checks; `docs/`: user and developer docs
 - `docs/criteria/`: what "done" means (`CRITERIA*.md`) and the latest results (`CRITERIA_REPORT*.md`)
