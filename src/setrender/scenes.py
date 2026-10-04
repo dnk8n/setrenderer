@@ -45,20 +45,23 @@ def engine_of(cfg: dict) -> str:
 
 
 def gpu(cfg: dict) -> bool:
-    return engine_of(cfg) in ("cropcircle", "rubberhose", "spume")
+    return engine_of(cfg) in ("cropcircle", "rubberhose", "spume", "cymatics")
 
 
 def native(cfg: dict) -> bool:
     """Engines that draw at the output resolution, in absolute set time (a slice renders the same
     frames as the full render), and hand over YUV frames."""
-    return engine_of(cfg) in ("rubberhose", "spume")
+    return engine_of(cfg) in ("rubberhose", "spume", "cymatics")
 
 
 def pix_fmt(cfg: dict) -> str:
-    return {"cropcircle": "rgba", "rubberhose": "nv12", "spume": "nv12"}.get(engine_of(cfg), "rgb24")
+    return {"cropcircle": "rgba", "rubberhose": "nv12", "spume": "nv12", "cymatics": "nv12"}.get(engine_of(cfg), "rgb24")
 
 
 def make(cfg: dict, tl, an, rng, title: str):
+    if engine_of(cfg) == "cymatics":
+        from .cymatics.scene import CymaticsScene
+        return _Nv12Scene(CymaticsScene(cfg, tl, an, rng, title, an.fingerprint))
     if engine_of(cfg) == "spume":
         from .spume.scene import SpumeScene
         return _Nv12Scene(SpumeScene(cfg, tl, an, rng, title, an.fingerprint))
@@ -74,7 +77,7 @@ def make(cfg: dict, tl, an, rng, title: str):
 
 def prepare(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir: Path, log) -> dict:
     """Work that must happen once, in the parent process, before frames render (extra analysis)."""
-    if engine_of(cfg) in ("rubberhose", "spume"):
+    if engine_of(cfg) in ("rubberhose", "spume", "cymatics"):
         return _prepare_whole(cfg, src, audio_hash, start, cache_dir, log, engine_of(cfg))
     if engine_of(cfg) != "cropcircle":
         return {}
@@ -100,7 +103,7 @@ def prepare(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir: Path
 
 
 def _prepare_whole(cfg: dict, src: Path, audio_hash: str, start: float, cache_dir: Path, log, name: str) -> dict:
-    """rubberhose and spume plan the whole video from the whole set, so a slice needs the full analysis
+    """rubberhose, spume and cymatics plan the whole video from the whole set, so a slice needs the full analysis
     (cached) and the sound classifier's events (Core ML on the Neural Engine, cached)."""
     from . import analysis, audio
     from .crop import extras
@@ -139,6 +142,9 @@ def highlight_acts(cfg: dict, title: str, rng):
 
 def highlight_hints(cfg: dict, title: str, rng):
     """Template-specific highlight moments for `setrender reel` (needs prepare() first)."""
+    if engine_of(cfg) == "cymatics":
+        from .cymatics.scene import highlight_hints as ch
+        return ch(cfg, title, rng)
     if engine_of(cfg) == "spume":
         from .spume.scene import highlight_hints as sh
         return sh(cfg, title, rng)
