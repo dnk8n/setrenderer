@@ -77,8 +77,8 @@ class SpumeScene:
         fl = cfg.get("film", {}) or {}
         self.film_strength = float(fl.get("strength", 1.0))
         pu = cfg.get("pulse", {}) or {}
-        self.pump = float(pu.get("exposure", 0.16))
-        self.punch = float(pu.get("punch", 0.035))
+        self.pump = float(pu.get("exposure", 0.10))
+        self.punch = float(pu.get("punch", 0.025))
         self.aberr = float(pu.get("aberration", 1.0))
         self.bloom = float(cfg.get("bloom", 0.25))
         self.surges_on = bool((cfg.get("surges", {}) or {}).get("enabled", True))
@@ -91,6 +91,9 @@ class SpumeScene:
             a, rel = sm.get(k, [0.01, 0.15])
             self.env[k] = _attack_release(full.at(full.bands.get(k, full.loudness), tt).astype(np.float64),
                                           self.fps, a, rel).astype(np.float32)
+        # the vortex follows the low mids slowly, so it tightens and relaxes rather than jerking frame to frame
+        self.env["lowmid_slow"] = _attack_release(full.at(full.bands.get("lowmid", full.loudness), tt).astype(np.float64),
+                                                  self.fps, 0.25, 0.8).astype(np.float32)
         a, rel = sm.get("loudness", [0.2, 0.8])
         self.env["loud"] = _attack_release(full.at(full.loudness, tt).astype(np.float64), self.fps, a, rel).astype(np.float32)
         self.beats = full.beats if len(full.beats) else np.array([1e9])
@@ -193,7 +196,7 @@ class SpumeScene:
             ca = self.aberr * (0.25 + 1.1 * e["bass"] + 0.6 * kick)
         v = [self.size[0], self.size[1], 2.0 / self.size[1], self.size[0] / self.size[1],
              clock, 0.0, 0.0, float(round(t * self.fps)),
-             kick, e["sub"], e["bass"], e["lowmid"],
+             kick, e["sub"], e["bass"], e["lowmid_slow"],
              e["highmid"], e["high"], e["loud"], calm,
              *la, *lb,
              bl, float(kind), *ctr,

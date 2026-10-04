@@ -18,12 +18,12 @@ canvas:
   width: 1920         # drawn at the output resolution (everything is computed per pixel)
   height: 1080
 
-# Encoder defaults. Every pixel changes every frame (the dive, the swirling films, the music's colour), so
-# this needs far more bits than flat cartoons: q40 looks the same as q54 here at half the size
+# Encoder defaults. Every pixel moves every frame (the dive, the swirling films, the music's colour), so
+# this needs more bits than flat cartoons: q40 looks the same as q54 here at about half the size
 encode:
   vt_q: 40            # Apple VideoToolbox quality (--crf overrides)
   crf: 20             # x264 CRF when --encoder x264
-  est_mbps: 34        # for the free-disk-space check (about 30 GB for two hours)
+  est_mbps: 24        # for the free-disk-space check (about 20 GB for two hours)
 
 # all six by default; a list picks and orders the pool
 motifs: [lather, steiner, hyperbolic, droste, raft, film]
@@ -47,19 +47,21 @@ colour:
   hue_spread: 0.06        # how far each set may nudge each element's colours
 
 pulse:
-  exposure: 0.16          # brightness lift on each kick
-  punch: 0.035            # zoom punch on each kick
+  exposure: 0.10          # brightness lift on each kick (kept under the photosensitive flash threshold)
+  punch: 0.025            # zoom punch on each kick
   aberration: 1.0         # prism fringes with the bass and kick
 
 bloom: 0.25
 
 surges: {enabled: true}   # instruments the classifier hears make their element's bubbles swell and blaze
 
+# the bands that brighten large areas let go slowly, so the picture breathes with them instead of strobing
+# (photosensitivity: no more than three flashes a second, see docs/templates/spume.md)
 smoothing:
-  sub: [0.005, 0.20]
-  bass: [0.005, 0.16]
+  sub: [0.005, 0.45]
+  bass: [0.005, 0.40]
   lowmid: [0.02, 0.30]
-  highmid: [0.01, 0.15]
+  highmid: [0.01, 0.35]
   high: [0.005, 0.10]
   loudness: [0.2, 0.8]
 

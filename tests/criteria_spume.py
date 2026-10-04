@@ -383,7 +383,7 @@ def _s12(sc, fx):
             out = []
             for k in range(n):
                 u = base.copy()
-                u[slot[band]] = sc.env[band][fi[k]]
+                u[slot[band]] = sc.env["lowmid_slow" if band == "lowmid" else band][fi[k]]
                 if band == "lowmid":
                     u[26] = (base[26] + sw_t[k] - sw_t[0]) % 6283.1853
                     u[42] = (base[42] + sw_t[k] - sw_t[0]) % 6283.1853
@@ -596,22 +596,50 @@ def _full_checks(full: Path | None, set_audio: Path, sc):
     rows = [json.loads(x) for x in out.splitlines() if x.startswith("{")]
     (W / "vision.json").write_text(json.dumps(rows, indent=1))
     raw_text = [(r["file"], w["text"], round(float(w["confidence"]), 2)) for r in rows for w in r.get("text", [])]
-    words = [x for x in raw_text if is_word(x[1], x[2])]
+    candidates = [x for x in raw_text if is_word(x[1], x[2])]
+    # a word only counts if it is read again half a second before or after: text on screen stays legible,
+    # while the recogniser's readings of moving bubbles come and go from frame to frame
+    words = []
+    if candidates:
+        nd = W / "vision_near"
+        if nd.exists():
+            shutil.rmtree(nd)
+        nd.mkdir()
+        for fname, _, _ in candidates:
+            t = (int(fname[1:6]) - 1) * 10.0           # keyframes picked every 10 s from 0
+            for k, dt in enumerate((-0.5, 0.5)):
+                if 0 <= t + dt < an.duration:
+                    sh(["ffmpeg", "-v", "error", "-nostdin", "-ss", f"{t + dt:.3f}", "-i", str(full), "-frames:v", "1",
+                        "-q:v", "2", str(nd / f"{fname[:-4]}_{k}.jpg")])
+        near = subprocess.run(["swift", str(ROOT / "tests" / "vision_check.swift"), str(nd)], check=True,
+                              capture_output=True, text=True).stdout
+        seen: dict[str, set] = {}
+        for x in near.splitlines():
+            if x.startswith("{"):
+                r = json.loads(x)
+                seen.setdefault(r["file"][:6], set()).update(w["text"].lower() for w in r.get("text", []))
+        words = [c for c in candidates if any(c[1].lower() in v or any(c[1].lower() in w for w in v)
+                                              for k, v in seen.items() if k == c[0][:6])]
     rec("S6", no_text_code and not words and len(rows) >= 0.95 * an.duration / 10, frames=len(rows),
-        engine_has_no_text_code=no_text_code, words_found=words[:8], frames_with_any_reading=len({x[0] for x in raw_text}),
-        readings=raw_text[:12])
+        engine_has_no_text_code=no_text_code, words_found=words[:8], read_once_not_again=candidates[:8],
+        frames_with_any_reading=len({x[0] for x in raw_text}), readings=raw_text[:12])
     hits = [bool(r.get("faces") or r.get("humans") or r.get("animals")) for r in rows]
     consecutive = any(a and b for a, b in zip(hits, hits[1:]))
     rec("S7", sum(hits) <= 0.01 * len(rows) and not consecutive, frames=len(rows), frames_with_detections=sum(hits),
         in_a_row=consecutive, detections=[(r["file"], [k for k in ("faces", "humans", "animals") if r.get(k)])
                                           for r in rows if r.get("faces") or r.get("humans") or r.get("animals")][:8])
-    # S11: saturation and hue coverage on frames every 2 s, from the intro's end to the outro
+    # S11: saturation and hue coverage on the sampled frames themselves (the full-size keyframes every 10 s,
+    # viewed at 480x270), from the intro's end to the outro; 64x36 thumbnails would average neighbouring
+    # colours toward grey
+    import pygame
     P = sc.P if sc is not None else None
     lo_t = P.intro[1] if P else 10.0
     hi_t = P.outro[0] if P else an.duration - 30
-    tk = ki / FPS
-    sel = (tk >= lo_t) & (tk < hi_t)
-    f = kf[sel]
+    tk_all = np.array([(int(r["file"][1:6]) - 1) * 10.0 for r in rows])
+    files = [vd / r["file"] for r, t in zip(rows, tk_all) if lo_t <= t < hi_t]
+    tks = tk_all[(tk_all >= lo_t) & (tk_all < hi_t)]
+    f = np.stack([pygame.surfarray.array3d(pygame.transform.smoothscale(pygame.image.load(str(p)), (480, 270)))
+                  .swapaxes(0, 1).astype(np.float32) / 255.0 for p in files])
     mx, mn = f.max(-1), f.min(-1)
     sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
     med_sat = float(np.median(sat))
@@ -619,7 +647,6 @@ def _full_checks(full: Path | None, set_audio: Path, sc):
     d = np.maximum(mx - mn, 1e-6)
     hue = np.where(mx == r_, ((g_ - b_) / d) % 6, np.where(mx == g_, (b_ - r_) / d + 2, (r_ - g_) / d + 4)) / 6.0
     worst, mins = 12, 0
-    tks = tk[sel]
     for m0 in np.arange(lo_t, hi_t - 60 + 1e-6, 60.0):
         msk = (tks >= m0) & (tks < m0 + 60)
         hs = hue[msk][(sat[msk] > 0.25) & (mx[msk] > 0.15)]
@@ -634,7 +661,7 @@ def _full_checks(full: Path | None, set_audio: Path, sc):
     R = film.reflectance(np.array([0.0, 250.0]), film.LAMBDA, 1.335 + 0j, 1.0 + 0j)
     spectral_ok = bool(R[0].max() < 1e-12 and tbl[0, 0, :3].max() < 1e-6 and np.ptp(R[1]) > 0.05)
     rec("S11", spectral_ok and med_sat >= 0.45 and worst >= 10, spectral_film_model=spectral_ok,
-        median_saturation=round(med_sat, 3), minutes=mins, fewest_hue_sectors_in_a_minute=worst)
+        median_saturation=round(med_sat, 3), frames=len(f), minutes=mins, fewest_hue_sectors_in_a_minute=worst)
     # S16: load during the render, GPU and classifier recorded
     side = json.loads(Path(str(full) + ".json").read_text())
     log = ROOT / "work" / "full_render_spume.log"
@@ -652,7 +679,8 @@ def _full_checks(full: Path | None, set_audio: Path, sc):
     worst_gen = max(_per_second_max(_flashes(lum_w[:, k], 0.10)) for k in range(lum_w.shape[1]))
     worst_red = max(_per_second_max(_flashes(red_w[:, k], 0.25)) for k in range(red_w.shape[1]))
     n_red = sum(len(_flashes(red_w[:, k], 0.25)) for k in range(red_w.shape[1]))
-    rec("S17", worst_gen <= 3 and n_red == 0, most_general_flashes_in_1s=worst_gen, red_flashes=n_red,
+    np.savez(W / "scan.npz", gray=gray, lum_w=lum_w, red_w=red_w)
+    rec("S17", worst_gen <= 3 and worst_red <= 3, most_general_flashes_in_1s=worst_gen, red_flashes=n_red,
         most_red_flashes_in_1s=worst_red, frames=len(lum_w))
 
 

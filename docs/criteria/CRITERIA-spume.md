@@ -1,4 +1,4 @@
-# setrender: completeness criteria for spume.tpl (draft v1.1)
+# setrender: completeness criteria for spume.tpl (draft v1.2)
 
 `spume.tpl` shares the CLI, output format, reproducibility and performance rules of `CRITERIA.md` (A1–A21).
 This file adds what is specific to the spume brief (2026-10-03): a fourth template with full artistic licence
@@ -12,6 +12,11 @@ Draft v1.1 (2026-10-04) makes the measurements of S4, S6, S10, S12 and S13 preci
 the checks. Three of those changes make a check easier to pass: S6 ignores the recogniser reading chains of
 bubbles as digits, S10 doesn't judge bubbles under 3 px, and in S13 a section starting next to a breakdown's
 edge changes the look on that edge, and builds wind the vortex and the colour rather than speeding the dive.
+Draft v1.2 (2026-10-04), after the first full run: S6 counts a word only if it is read again half a second
+before or after (the recogniser read "Dog" and "Dot" in rings of bubbles, and nothing in the frames either
+side), S11 measures the sampled frames themselves rather than 64x36 thumbnails (which average neighbouring
+colours toward grey: 0.43 against 0.64), and S17 takes the red-flash limit from the guidelines it cites (no
+more than three a second, like general flashes) instead of none at all.
 
 Each criterion is checked by an automated test (`S`) or a human checklist (`H`). It is complete when every `S`
 passes and every `H` is ticked. `tests/criteria_spume.py` runs the automated checks and writes
@@ -27,12 +32,12 @@ passes and every `H` is ticked. `tests/criteria_spume.py` runs the automated che
 - S5. The same holds for the full 2 h render, with no drift at the end.
 
 ## 3. The brief: patterns only, recursive, psychedelic
-- S6. No letters: nothing in the engine draws text, and Apple's on-device text recogniser (Vision, accurate mode) finds no word in frames sampled every 10 s across the full render. A word is three or more letters in a row, read with confidence 0.5 or more, that aren't all round shapes; the recogniser reads chains of bubbles as strings like `00 00` or `00100100`, so those readings are listed in the report but don't count.
+- S6. No letters: nothing in the engine draws text, and Apple's on-device text recogniser (Vision, accurate mode) finds no word in frames sampled every 10 s across the full render. A word is three or more letters in a row, read with confidence 0.5 or more, that aren't all round shapes, and that the recogniser reads again in a frame half a second before or after (text on screen stays legible; its readings of moving bubbles come and go). The recogniser reads chains of bubbles as strings like `00 00` or `00100100`; every reading is listed in the report.
 - S7. No characters: Apple's on-device face, human-body and animal detectors (Vision) find nothing in at least 99% of the same sampled frames, and never in two samples in a row.
 - S8. Recursive: in at least 95% of frames sampled across the full set, the picture shows patterns nested at least three levels deep (bubbles inside bubbles inside bubbles), read from the renderer's own depth layer. The camera dives continuously into the recursion: its zoom never runs backwards.
 - S9. Kaleidoscopes fade in and out: over the full set the mirror symmetry is on for between 25% and 75% of the time, switches on or off at least 30 times, uses at least four different fold counts, and every switch starts on a downbeat. In sampled frames where it is on, the picture matches itself rotated by one fold (correlation at least 0.9); where it is off, it does not.
 - S10. The elements: every bubble holds one of eight elements (fire, water, earth, air, metal, ice, lightning, magma), neighbouring bubbles in the same foam never hold the same one (judged from the renderer's id layer on frames every 10 s, for bubbles at least 3 px across), and all eight appear in every 10-minute window. The on-device sound classifier (Core ML) covers the whole set with a result at least every 2 s, and at least 6 element surges are cued by instruments it hears (brass to fire, keys to water, drums to earth...), each starting within 2 s of the sound.
-- S11. Vibrant, endless colour: film colours come from a spectral thin-film interference model, the median saturation of sampled frames is at least 0.45, and every minute of the set covers at least 10 of 12 hue sectors (each holding at least 1% of the pixels).
+- S11. Vibrant, endless colour: film colours come from a spectral thin-film interference model, the median saturation of the frames sampled every 10 s (viewed at 480x270) is at least 0.45, and every minute of the set covers at least 10 of 12 hue sectors (each holding at least 1% of the coloured pixels).
 
 ## 4. Following the music
 - S12. At least five audio features each drive a different layer of the picture (kick: exposure pump, zoom punch and a turn of the camera; sub: how strongly the soap films show; bass: the neon in the Plateau borders; low mids: the films' swirl; high mids: how fiercely the elements burn; highs: sparkle and fizz). Rendering each layer on its own, with the picture held still while one band plays through a minute of the set (a minute without a breakdown), its on-screen activity (brightness, or for the swirl, motion) correlates with its band at r ≥ 0.6 (A8, A9). Silent input gives a near-static picture: under 35% of the motion with music (A10).
@@ -42,7 +47,7 @@ passes and every `H` is ticked. `tests/criteria_spume.py` runs the automated che
 - S14. Two different sets differ measurably (colour-histogram distance above the A17 threshold on sampled frames), and the same set rendered twice is identical (A14, A17).
 - S15. Re-running the command recorded in the sidecar reproduces the video frame for frame (A15). An interrupted render resumes and matches an uninterrupted one (A21).
 - S16. The full Knisper set (1 h 55 m trimmed) at 1080p60 renders with the machine's load average at or below about 7. Frames are drawn on the GPU (Metal) and converted to YUV there; the sidecar records the GPU adapter and the sound classifier. Only free, open-source tools are used (A16).
-- S17. Photosensitivity: across the full render, no one-second window has more than 3 general flashes (opposing luminance changes of at least 10% of full brightness over at least a quarter of the screen) or any red flash, following the thresholds of the Harding and WCAG flash guidelines.
+- S17. Photosensitivity: across the full render, no one-second window has more than 3 general flashes (opposing luminance changes of at least 10% of full brightness over at least a quarter of the screen) or more than 3 red flashes (a quarter of the screen turning saturated red and back), following the thresholds of the Harding and WCAG 2.3.1 flash guidelines.
 
 ## 6. The highlight reel
 - S18. `setrender reel <audio> -t spume` writes a reel of about 30 s (±2 s) made of 10 to 15 clips of 2 to 3 s each. Every cut lands on a beat (within 1 frame), the first clip shows the opening (the first bubble forming), the last shows the closing (the last pop), and the clips in between are spread evenly through the set (each gap within ±50% of the average) at its salient moments (drops, motif changes, kaleidoscopes, element surges). Each clip's audio is the set's own audio at that point.

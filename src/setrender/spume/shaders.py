@@ -368,7 +368,9 @@ fn motif_hyper(p0: vec2<f32>, L: Look) -> Cell {
   c.local = z / rin * 0.92;
   c.edge = (length(z - vec2<f32>(dc, 0.0)) - rc) / sc;
   c.size = rin / sc;
-  c.id = fract(f32(gen) * 0.137 + f32(par) * 0.5 + L.seed);
+  // the number of reflections it took to get here can change inside a cell (and from frame to frame), the
+  // parity can't: identity comes from the parity alone, so cells never flicker
+  c.id = fract(f32(par) * 0.5 + L.seed);
   c.elem = imod(i32(L.eoff) + select(0, 3, par == 1), 8);
   c.depth = gen;
   c.wall = 0.0;
@@ -795,12 +797,12 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
     let lens = c.local / (0.45 + 0.55 * nz);
     let uvI = rot(c.id * TAU) * lens * 1.1;
     let pix = px / max(c.size, 1e-5) * 1.1 * 1.8;
-    var ie = 0.3 + 1.3 * highmid;
+    var ie = 0.45 + 0.8 * highmid;
     if (surging) { ie = ie + 0.9 * u.fx.w; }
     if (lod > 0.0) {
       interior = element(el, uvI, t + c.id * 17.0, pix, c.id, ie);
     }
-    interior = mix(elem_mean(el, c.id) * (0.6 + 0.6 * ie), interior, lod) * (0.5 + 1.0 * highmid);
+    interior = mix(elem_mean(el, c.id) * (0.6 + 0.6 * ie), interior, lod) * (0.8 + 0.4 * highmid);
     // the inside of a dome is darker towards its rim
     interior = interior * (0.35 + 0.65 * nz * nz);
     if (surging) { interior = interior * (1.0 + 0.6 * u.fx.w); }
@@ -812,8 +814,9 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
 
   // soap film: thickness swirls (Marangoni flow), drains downwards, swells with the sub-bass
   let sw = L.swirl;
-  var fq = c.local * 1.7 + vec2<f32>(c.id * 31.0, c.id * 17.0);
-  fq = rot(sw * 0.6 + c.id * 6.0) * fq;
+  // the film turns about the bubble's own centre (a hash offset added before turning it would slide the
+  // pattern a long way on every step of the swirl and make it flicker)
+  let fq = rot(sw * 0.35 + c.id * 6.0) * (c.local * 1.7) + vec2<f32>(c.id * 31.0, c.id * 17.0);
   let fpix = px / max(c.size, 1e-4);
   let fl = 40.0 * vec2<f32>(cos(sw * 0.01), sin(sw * 0.01));
   let w1 = fbm(fq + fl, fpix * 2.0, 4);
@@ -833,7 +836,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
   var fc = film_rgb(nm * cos_t, 0.0);
   fc = max(mix(vec3<f32>(luma(fc)), fc, 1.6), vec3<f32>(0.0));
   fc = max(hue(fc, L.hue), vec3<f32>(0.0)) * u.light.rgb;
-  let fstr = u.dbg.w * (0.3 + 1.2 * sub) * u.lay.x;
+  let fstr = u.dbg.w * (0.5 + 0.8 * sub) * u.lay.x;
   var col = interior * (1.0 - 0.55 * filmw * min(fstr, 1.0)) + fc * filmw * fstr * 0.6;
   if (el < 0) {
     // black film is truly dark: the thinnest film reflects almost nothing
@@ -869,7 +872,7 @@ fn shade(c: Cell, L: Look, p: vec2<f32>) -> Shade {
   let mid = exp(-epx * epx / max(0.06 * bwpx * bwpx, 0.45));
   let edgefilm = film_rgb(L.fbase * 0.5 + 300.0 + 220.0 * sin(c.id * 20.0 + t * 0.3), 0.0);
   let neon = max(mix(vec3<f32>(luma(edgefilm)), edgefilm, 2.0), vec3<f32>(0.0)) * u.light.rgb;
-  let glow = (0.06 + 1.7 * bass * bass) * (1.0 + kick * 0.25);
+  let glow = (0.12 + 1.2 * bass * bass) * (1.0 + kick * 0.2);
   let lead = vec3<f32>(0.012, 0.008, 0.02);
   col = mix(col, lead * (1.0 - u.lay.y * 0.0), inb * min(u.lay.x + u.lay.z + u.lay.w, 1.0));
   col = col + neon * mid * glow * 1.3 * u.lay.y * (0.3 + 0.7 * lod);
