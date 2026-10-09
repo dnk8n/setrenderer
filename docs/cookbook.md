@@ -27,7 +27,7 @@ setrender render set.wav --start 1800 --duration 30          # 30 s from the 30-
 setrender render set.wav --start 1800 --duration 30 --quality draft   # smaller and quicker to encode
 ```
 
-For rubberhose, spume and cymatics, a slice draws exactly the frames the full render will have at those times, because they plan the whole set first. For knisper and cropcircle a slice is its own little render, analysed on its own, so it shows the look rather than the exact frames of the full render.
+For rubberhose, spume, cymatics and crucible, a slice draws exactly the frames the full render will have at those times, because they plan the whole set first (for crucible, the full render of the same run: give the slice the run number from the receipt with `--set evolution.run=N`). For knisper and cropcircle a slice is its own little render, analysed on its own, so it shows the look rather than the exact frames of the full render.
 
 **How big will it be, and is there room?**
 
@@ -40,7 +40,7 @@ setrender render set.wav -t rubberhose --dry-run
 
 ## Choose and tweak a look
 
-**Pick a template.** `-t knisper` (the default), `-t cropcircle`, `-t rubberhose`, `-t spume` or `-t cymatics`. `setrender templates` lists them with their keywords.
+**Pick a template.** `-t knisper` (the default), `-t cropcircle`, `-t rubberhose`, `-t spume`, `-t cymatics` or `-t crucible`. `setrender templates` lists them with their keywords.
 
 **Keywords** switch on looks the template defines. Combine them with commas:
 
@@ -111,7 +111,7 @@ setrender render set.wav -t rubberhose --title "Salt & Sugar live at the Barn"
 | a specific encoder quality | `--crf 65` (VideoToolbox q, higher is better) or `--encoder x264 --crf 14 --preset slow` |
 | your own file name | `-o "out/Knisper 2026.mov"` |
 
-The pixel-art templates scale by whole-number factors at 1080p (4x for knisper, 3x for cropcircle) and 2160p, so pixels stay perfectly square there. rubberhose, spume and cymatics draw at the output resolution, so they are sharp at any size.
+The pixel-art templates scale by whole-number factors at 1080p (4x for knisper, 3x for cropcircle) and 2160p, so pixels stay perfectly square there. rubberhose, spume, cymatics and crucible draw at the output resolution, so they are sharp at any size.
 
 ## Long renders, gently
 

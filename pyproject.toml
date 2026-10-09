@@ -13,6 +13,10 @@ dependencies = [
   "pyyaml>=6.0",
   "wgpu>=0.32",                                                   # GPU engine (WebGPU on Metal/Vulkan/DX12)
   "pyobjc-framework-SoundAnalysis>=12; sys_platform == 'darwin'",  # on-device sound classifier (Core ML)
+  "cma>=4.5",                                                     # crucible: CMA-ES (Hansen's reference implementation)
+  "ribs>=0.12",                                                   # crucible: MAP-Elites and CMA-ME (pyribs)
+  "neat-python>=2.0",                                             # crucible: NEAT
+  "deap>=1.4",                                                    # crucible: genetic algorithm operators
 ]
 
 [project.scripts]

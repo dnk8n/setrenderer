@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repository. Humans: the same r
 
 ## What this is
 
-setrender is a Python CLI that turns a DJ set (WAV or AIFF) into a beat-synced, YouTube-ready video styled by a template. It analyses the audio (librosa), plans per-frame signals, draws every frame as a pure function of its index (pygame-ce on the CPU, or wgpu on Metal), and encodes in resumable one-minute chunks with ffmpeg and Apple VideoToolbox. Templates are YAML files in `templates/`: `knisper` (8-bit rave, CPU), `cropcircle` (3D farm festival, GPU), `rubberhose` (1930s cartoon boss rush, GPU), `spume` (recursive psychedelic foam, GPU) and `cymatics` (a night physics lab of sound made visible, GPU). It targets macOS on Apple Silicon.
+setrender is a Python CLI that turns a DJ set (WAV or AIFF) into a beat-synced, YouTube-ready video styled by a template. It analyses the audio (librosa), plans per-frame signals, draws every frame as a pure function of its index (pygame-ce on the CPU, or wgpu on Metal), and encodes in resumable one-minute chunks with ffmpeg and Apple VideoToolbox. Templates are YAML files in `templates/`: `knisper` (8-bit rave, CPU), `cropcircle` (3D farm festival, GPU), `rubberhose` (1930s cartoon boss rush, GPU), `spume` (recursive psychedelic foam, GPU), `cymatics` (a night physics lab of sound made visible, GPU) and `crucible` (twenty trials where creatures evolve at render time, GPU). It targets macOS on Apple Silicon.
 
 ## Setup and commands
 
@@ -26,14 +26,14 @@ There is no unit-test suite; verification is stills, `verify`, and the criteria 
 - `src/setrender/cli.py`: commands, CPU budget (`plan_budget`), chunked resumable rendering, the JSON receipt
 - `src/setrender/config.py`: template loading; precedence is template < `--params` < `--keywords` < `--set`
 - `src/setrender/analysis.py`, `timeline.py`: audio analysis (cached by audio hash) and per-frame signals
-- `src/setrender/scenes.py`: engine registry; `scene.py` + `sprites.py` (pixel engine), `gpu/`, `crop/` (cropcircle), `hose/` (rubberhose), `spume/` (spume), `cymatics/` (cymatics)
+- `src/setrender/scenes.py`: engine registry; `scene.py` + `sprites.py` (pixel engine), `gpu/`, `crop/` (cropcircle), `hose/` (rubberhose), `spume/` (spume), `cymatics/` (cymatics), `crucible/` (crucible)
 - `src/setrender/encode.py`, `reel.py`, `verify.py`: ffmpeg arguments, highlight reels, video checks
 - `templates/*.tpl`: the templates; `tests/criteria*.py`: criteria checks; `docs/`: user and developer docs
 - `docs/criteria/`: what "done" means (`CRITERIA*.md`) and the latest results (`CRITERIA_REPORT*.md`)
 
 ## Hard rules
 
-- **Frames are pure functions of their index.** Never carry state between frames, read the clock, or use unseeded randomness. All randomness comes from the seeded `numpy.random.Generator` passed to the scene, or from hashes of stable values. Plan anything history-dependent up front.
+- **Frames are pure functions of their index.** Never carry state between frames, read the clock, or use unseeded randomness. All randomness comes from the seeded `numpy.random.Generator` passed to the scene, or from hashes of stable values. Plan anything history-dependent up front. The one deliberate exception is crucible's run number: a render with `evolution.run: auto` draws a fresh one once, records it in the chunk manifest and the sidecar, and every frame is a pure function of its index given that number.
 - **Never commit or push rich media.** No renders, audio, video or images; `.gitignore` blocks them. The only exception is a few compressed JPEG screenshots in `docs/media/` (100 to 300 KB each), and only when the task is about the docs.
 - **Stay under a load average of about 7** on the maintainer's 8-core machine. Use `--cpu` (default 7; 6 for full rubberhose renders) and never run two heavy renders at once. Prefer stills and short slices over full renders.
 - **Don't break other templates.** A change to one template must leave the others' frames byte-identical: render stills of every template at `--at 600,3600` before and after and compare with `cmp`.

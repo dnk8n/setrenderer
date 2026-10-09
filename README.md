@@ -29,15 +29,16 @@
 
 ---
 
-## Five worlds, one command
+## Six worlds, one command
 
 <table>
   <tr>
-    <td width="20%"><a href="docs/templates/knisper.md"><img src="docs/media/knisper.jpg" alt="knisper: pixel-art crowd dancing in front of a burned-out car DJ stage"></a></td>
-    <td width="20%"><a href="docs/templates/cropcircle.md"><img src="docs/media/cropcircle.jpg" alt="cropcircle: a 3D crowd of pixel people at night under an aurora, jellyfish glowing in the trees"></a></td>
-    <td width="20%"><a href="docs/templates/rubberhose.md"><img src="docs/media/rubberhose.jpg" alt="rubberhose: two cartoon heroes squaring up to a giant angry red teapot"></a></td>
-    <td width="20%"><a href="docs/templates/spume.md"><img src="docs/media/spume.jpg" alt="spume: an eight-fold kaleidoscope of bubbles holding lightning around a ring of frost and smaller bubbles"></a></td>
-    <td width="20%"><a href="docs/templates/cymatics.md"><img src="docs/media/cymatics.jpg" alt="cymatics: golden sand gathered into the nodal lines of a square Chladni plate"></a></td>
+    <td width="16%"><a href="docs/templates/knisper.md"><img src="docs/media/knisper.jpg" alt="knisper: pixel-art crowd dancing in front of a burned-out car DJ stage"></a></td>
+    <td width="16%"><a href="docs/templates/cropcircle.md"><img src="docs/media/cropcircle.jpg" alt="cropcircle: a 3D crowd of pixel people at night under an aurora, jellyfish glowing in the trees"></a></td>
+    <td width="16%"><a href="docs/templates/rubberhose.md"><img src="docs/media/rubberhose.jpg" alt="rubberhose: two cartoon heroes squaring up to a giant angry red teapot"></a></td>
+    <td width="16%"><a href="docs/templates/spume.md"><img src="docs/media/spume.jpg" alt="spume: an eight-fold kaleidoscope of bubbles holding lightning around a ring of frost and smaller bubbles"></a></td>
+    <td width="16%"><a href="docs/templates/cymatics.md"><img src="docs/media/cymatics.jpg" alt="cymatics: golden sand gathered into the nodal lines of a square Chladni plate"></a></td>
+    <td width="16%"><a href="docs/templates/crucible.md"><img src="docs/media/crucible.jpg" alt="crucible: a soft-bodied voxel creature walking across a terrain made of the set's waveform, with a fitness chart and a row of failed attempts"></a></td>
   </tr>
   <tr>
     <td><b><a href="docs/templates/knisper.md">knisper</a></b><br>An 8-bit underground rave. A burned-out car is the DJ booth, jellyfish hang in blocky trees, and a crowd of every kind bounces on a lit dancefloor, with nods to the C64, Amiga, Mega Drive, N64 and NES.</td>
@@ -45,10 +46,11 @@
     <td><b><a href="docs/templates/rubberhose.md">rubberhose</a></b><br>A 1930s rubber-hose cartoon boss rush with original characters. One boss per act, hearts, ghosts, lost takes, super attacks on the drops, intermissions in the breakdowns and an easter egg every minute.</td>
     <td><b><a href="docs/templates/spume.md">spume</a></b><br>Alien foam, falling forever into itself. Bubbles inside bubbles in the colours of real soap films, kaleidoscopes fading in and out, and fire, water, earth, air, metal, ice, lightning and magma in alternating bubbles. No characters, no letters.</td>
     <td><b><a href="docs/templates/cymatics.md">cymatics</a></b><br>Sound made visible. A physics lab at night, filmed in macro: sand on a Chladni plate, Faraday waves, ferrofluid spikes, a Rubens tube of flames, water frozen by a strobe and lasers drawing the chord of the key, all played by the set.</td>
+    <td><b><a href="docs/templates/crucible.md">crucible</a></b><br>Twenty trials, evolved live. The set poses each one (a race over its waveform, rocks on its kicks, pipes on its beats) and creatures, swarms and colonies evolve to beat it with real optimisers, each success shown as a journey from its first generation. Every render is a new run.</td>
   </tr>
 </table>
 
-Everything on screen answers to the music: the beat tracker finds every kick, five frequency bands drive different things on screen, the set's sections change the scenery, and the drops land. The same set always renders the same video, and two different sets never look alike.
+Everything on screen answers to the music: the beat tracker finds every kick, five frequency bands drive different things on screen, the set's sections change the scenery, and the drops land. The same set always renders the same video (crucible evolves afresh each time, unless you give it a run number), and two different sets never look alike.
 
 ## Watch it
 
@@ -95,6 +97,7 @@ setrender render set.wav -t rubberhose                          # the cartoon bo
 setrender render set.wav -t cropcircle -k aurora,packed         # keywords switch on looks
 setrender render set.wav -t spume -k mirror,acid                # psychedelic foam, kaleidoscopes all night
 setrender render set.wav -t cymatics -k plates                  # sand, waves and ferrofluid played by the set
+setrender render set.wav -t crucible                            # twenty trials, evolved live from the set
 setrender render set.wav -k acid --seed 3                       # another take on the same set
 setrender render set.wav --set elements.crowd.count=80          # change any value in a template
 setrender still  set.wav -t rubberhose --at 60,600,3600         # snapshots before you commit
@@ -119,7 +122,7 @@ The **[cookbook](docs/cookbook.md)** has a recipe for each of these and more: hi
   <sub>Two different 30-second test sets (cut from different hours of a mix), same templates, same moment, no settings changed.</sub>
 </p>
 
-The variation seed is built from the audio itself, so palettes, crowds, stages, casts and running orders differ from set to set, while the set's tempo, key, energy and structure drive the motion. Render the same set twice and you get the same video, frame for frame. Want a different take? Change `--seed`.
+The variation seed is built from the audio itself, so palettes, crowds, stages, casts and running orders differ from set to set, while the set's tempo, key, energy and structure drive the motion. Render the same set twice and you get the same video, frame for frame. Want a different take? Change `--seed`. (crucible is the exception by design: each render evolves its creatures afresh, and the receipt's run number replays one exactly.)
 
 ## Hidden in the videos
 
@@ -132,6 +135,7 @@ Things to look out for, without spoiling all of them:
 - thirteen bosses, from a gramophone in a ballroom to a pig DJ who turns into a dragon (rubberhose)
 - light that changes colour with the key of the music, around the circle of fifths, and bubbles that blaze when the classifier hears their instrument: brass sets fire to them, keys turn them to water, bells to bismuth (spume)
 - sand that settles on the nodal lines of a harmonic of your set's key, by Chladni's law, and three lasers drawing the key's chord, major or minor (cymatics)
+- creatures that walk to the beat because their muscles are locked to it, a prisoner's dilemma whose temptation rises with the energy, and the strategy that saves the commons named on screen (crucible)
 
 <p align="center">
   <img src="docs/media/rubberhose-moments.jpg" alt="Six rubberhose moments: the title card, a Super Art, a ghost floating up, a TAKE 2 clapperboard, a KNOCKOUT card and the overworld map" width="100%">
@@ -152,7 +156,7 @@ flowchart LR
 ```
 
 - **Free and local.** ffmpeg, librosa, NumPy/SciPy, pygame-ce and wgpu, all open source and all on your machine. Nothing is uploaded anywhere.
-- **Deterministic.** Each frame depends only on its number, the audio and the settings, so renders are reproducible, parallel and exact to the frame.
+- **Deterministic.** Each frame depends only on its number, the audio and the settings (for crucible, also its recorded run number), so renders are reproducible, parallel and exact to the frame.
 - **Kind to your computer.** `--cpu` caps the load the render adds (7 by default on an 8-core Mac), frames are drawn on the GPU where the template allows, and the hardware encoder does the compression.
 - **Resumable.** Work is saved in one-minute chunks. Stop it, reboot, run the same command, and it carries on.
 - **Measured, not eyeballed.** What "done" means is written down as criteria, and scripts check each one. The templates in the box pass all of their automated checks.

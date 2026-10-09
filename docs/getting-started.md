@@ -52,7 +52,7 @@ Check that it works by listing the templates:
 .venv/bin/setrender templates
 ```
 
-You should see `cropcircle`, `cymatics`, `knisper`, `rubberhose` and `spume`, each with a description and its keywords.
+You should see `cropcircle`, `crucible`, `cymatics`, `knisper`, `rubberhose` and `spume`, each with a description and its keywords.
 
 > **Shortcut:** run `source .venv/bin/activate` once per Terminal window and you can type `setrender` instead of `.venv/bin/setrender`. The rest of this guide uses the long form so it works either way.
 
@@ -153,7 +153,7 @@ If you need a smaller file, render with `--audio-codec aac` for an MP4 with high
 | `not enough free disk space for this render` | Free some space, render a slice with `--duration`, use `--quality draft`, or add `--force` if you know the estimate is pessimistic (it asks for twice the final size, for the moment the pieces are joined). |
 | `holds a render with different settings; use --restart` | You changed a setting since a render to the same file was interrupted. Add `--restart` to throw the old pieces away, or use `-o` to write to a new file. |
 | The fans are loud or the Mac feels slow | Stop it with <kbd>Ctrl C</kbd> and rerun the same command with `--cpu 4`. It resumes where it stopped. |
-| A GPU template (cropcircle, rubberhose, spume, cymatics) fails to start | These need Metal, which every Apple Silicon Mac has. If you see a wgpu or adapter error, update macOS and try again, and please [open an issue](https://github.com/dnk8n/setrenderer/issues) with the full message. |
+| A GPU template (cropcircle, rubberhose, spume, cymatics, crucible) fails to start | These need Metal, which every Apple Silicon Mac has. If you see a wgpu or adapter error, update macOS and try again, and please [open an issue](https://github.com/dnk8n/setrenderer/issues) with the full message. |
 
 ## Where to next
 

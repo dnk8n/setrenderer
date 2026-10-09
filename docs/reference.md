@@ -100,7 +100,7 @@ Stills are 1920x1080 PNGs (pixel-art templates are scaled up by whole pixels).
 | `--quality` | Video (VideoToolbox / x264) | Container | Use |
 |---|---|---|---|
 | `draft` | q50 / CRF 26 veryfast | MOV | quick checks |
-| `youtube` | q70 (templates can lower it: cropcircle 60, rubberhose 58, spume 40, cymatics 42) / CRF 16 faster | MOV | upload (default) |
+| `youtube` | q70 (templates can lower it: cropcircle 60, rubberhose 58, spume 40, cymatics 42, crucible 44) / CRF 16 faster | MOV | upload (default) |
 | `high` | q80 / CRF 12 medium | MOV | archival-ish upload |
 | `lossless` | FFV1 (RGB for knisper and cropcircle), every frame a keyframe | MKV | masters and clips (very large) |
 
@@ -116,7 +116,7 @@ Every preset except `lossless` writes H.264 High, 4:2:0, progressive, BT.709, a 
 | `out/<name>.<template>_highlights.mp4` and `.json` | a reel and its clip list (`_phone.mp4` with `--phone`) |
 | `work/reel/<name>.<template>/` | clips rendered for a reel when there is no full render |
 | `~/.cache/setrender/analysis-*.npz` | cached analyses, keyed by audio hash and settings |
-| `~/.cache/setrender/extras-*.npz` | cached sound-classifier, loudness and key results (cropcircle, rubberhose, spume, cymatics) |
+| `~/.cache/setrender/extras-*.npz` | cached sound-classifier, loudness and key results (cropcircle, rubberhose, spume, cymatics, crucible) |
 
 ## Template file keys
 
@@ -125,7 +125,7 @@ Templates are YAML. The keys every engine understands:
 | Key | Meaning |
 |---|---|
 | `name` | the template's name, used in output file names |
-| `engine` | `pixel` (the default, knisper's pygame engine), `cropcircle`, `rubberhose`, `spume` or `cymatics` |
+| `engine` | `pixel` (the default, knisper's pygame engine), `cropcircle`, `rubberhose`, `spume`, `cymatics` or `crucible` |
 | `description` | shown by `setrender templates` |
 | `canvas` | internal resolution and finishing (`width`, `height`, `crt`, and engine-specific values) |
 | `encode` | per-template encoder defaults: `vt_q`, `crf`, `est_mbps` (for the disk check) |
@@ -134,7 +134,7 @@ Templates are YAML. The keys every engine understands:
 | `mapping` | which feature drives which element (`{band: ..., gain: ...}`); read by the pixel engine, while the GPU templates use it to document their built-in wiring |
 | `keywords` | each keyword maps dotted paths to values, exactly like a set of `--set` overrides (`palette_order` is a knisper shortcut) |
 
-Engine-specific keys (`elements`, `palettes`, `variation`, `camera`, `sky`, `events`, `film`, `boil`, `story`, `bosses`, `hud`, and spume's `motifs`, `dive`, `kaleidoscope`, `twist`, `colour`, `pulse`, `bloom`, `surges`, and cymatics' `stations`, `min_bars`, `drive`, `camera`, `lens`, `materials`) are documented in each template file and on the [template pages](templates/README.md).
+Engine-specific keys (`elements`, `palettes`, `variation`, `camera`, `sky`, `events`, `film`, `boil`, `story`, `bosses`, `hud`, and spume's `motifs`, `dive`, `kaleidoscope`, `twist`, `colour`, `pulse`, `bloom`, `surges`, cymatics' `stations`, `min_bars`, `drive`, `camera`, `lens`, `materials`, and crucible's `evolution` (`run: auto` or a run number), `trials`, `chapters`, `chapter_minutes`) are documented in each template file and on the [template pages](templates/README.md).
 
 ## Environment
 

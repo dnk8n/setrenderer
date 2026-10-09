@@ -2,7 +2,7 @@
 
 setrender is built criteria-first. Before a template or feature is built, its brief is turned into a list of criteria that say exactly what complete means, and each criterion is either:
 
-- **automated** (IDs starting `A`, `C`, `R`, `S` or `K`): a script measures it on real renders. Beat sync to the frame, sample-identical audio, formats, determinism, resuming, distinctness between sets, the load on the machine, and each template's own rules (every boss shot on a beat, the camera cutting on downbeats, the crowd coming and going...);
+- **automated** (IDs starting `A`, `C`, `R`, `S`, `K` or `E`): a script measures it on real renders. Beat sync to the frame, sample-identical audio, formats, determinism, resuming, distinctness between sets, the load on the machine, and each template's own rules (every boss shot on a beat, the camera cutting on downbeats, the crowd coming and going...);
 - **human** (IDs starting `H`): a checklist item only a person can judge, such as "it looks like a 1930s rubber-hose cartoon".
 
 Something is complete when every automated check passes and every human item is ticked. The reports record the latest full run of each.
@@ -14,6 +14,7 @@ Something is complete when every automated check passes and every human item is 
 | rubberhose and the highlight reel | [CRITERIA-rubberhose.md](CRITERIA-rubberhose.md) (R1 to R18, H1 to H6) | [CRITERIA_REPORT-rubberhose.md](CRITERIA_REPORT-rubberhose.md): 18/18 | `tests/criteria_rubberhose.py` |
 | spume (draft, for review) | [CRITERIA-spume.md](CRITERIA-spume.md) (S1 to S18, H1 to H8) | [CRITERIA_REPORT-spume.md](CRITERIA_REPORT-spume.md): 18/18 | `tests/criteria_spume.py` |
 | cymatics (draft, for review) | [CRITERIA-cymatics.md](CRITERIA-cymatics.md) (K1 to K16, H1 to H7) | [CRITERIA_REPORT-cymatics.md](CRITERIA_REPORT-cymatics.md): 16/16 | `tests/criteria_cymatics.py` |
+| crucible (draft, for review) | [CRITERIA-crucible.md](CRITERIA-crucible.md) (E1 to E19, H1 to H7) | [CRITERIA_REPORT-crucible.md](CRITERIA_REPORT-crucible.md): see report | `tests/criteria_crucible.py` |
 
 The template criteria build on the shared ones in `CRITERIA.md`: every template must meet the same output, sync, reproducibility and load rules.
 
@@ -26,6 +27,7 @@ The template criteria build on the shared ones in `CRITERIA.md`: every template 
 .venv/bin/python tests/criteria_rubberhose.py "/path/to/set.wav" --only R7,R9   # a subset
 .venv/bin/python tests/criteria_spume.py "/path/to/set.wav" --full out/<set>.spume.mov --reel out/<set>.spume_highlights.mp4
 .venv/bin/python tests/criteria_cymatics.py "/path/to/set.wav" --full out/<set>.cymatics.mov --reel out/<set>.cymatics_highlights.mp4
+.venv/bin/python tests/criteria_crucible.py "/path/to/set.wav" --full out/<set>.crucible.mov --reel out/<set>.crucible_highlights.mp4
 ```
 
 Things to know before you run them:

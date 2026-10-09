@@ -19,6 +19,8 @@ Most come from the trimmed Knisper 2026 set by Pepper & Pumpernickl. The tiles w
 | `spume-motifs.jpg` | frames of the full spume render at 244.6, 315.4, 1138.6, 1868.6, 2547.9 and 2154.5 s, one per motif, labelled |
 | `cymatics.jpg` | frame 149238 (2487.3 s) of the cymatics render of the trimmed set, drawn with `frame_rgba` (identical to the full render's frame), scaled to 1280x720 |
 | `cymatics-stations.jpg` | cymatics frames at 2091.0, 5920.24, 1560.1, 739.2, 3243.6 and 4860.0 s, one per station, labelled with pygame and saved with `-q:v 5` |
+| `crucible.jpg` | frame 227426 (3790.4 s) of the crucible render of the trimmed set (run 970087, `--set evolution.run=970087`), drawn with `frame_rgba` (identical to the full render's frame), scaled to 1280x720 |
+| `crucible-trials.jpg` | crucible frames of the same run at 357.3, 4815.6, 1721.3, 4123.0, 6271.8 and 697.5 s (moon walk, flap, ant highway, spectral swarm, slime mould, the commons), joined with `xstack` and saved with `-q:v 5` |
 | `two-sets.jpg` | `setrender still` at 25 s on two 30-second clips of the set (from 10 minutes and 1 h 50 m), with knisper and rubberhose |
 
 When a template's look changes, regenerate its images the same way so the docs stay true to what the code renders.

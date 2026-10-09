@@ -50,6 +50,29 @@ def make_seed(user_seed: int, audio_hash: str, cfg: dict, start: float) -> int:
     return int(hashlib.sha256(s.encode()).hexdigest()[:15], 16)
 
 
+def _run_number(cfg: dict, args, parts: Path | None = None, source: Path | None = None) -> None:
+    """Templates that evolve at render time (crucible) start a fresh run for every new render: `evolution.run:
+    auto` becomes a run number here. A stopped render resumes its own run (the number is in its chunk
+    manifest), a reel cuts from the render's run (its sidecar), and the receipt records the number."""
+    if config.get_path(cfg, "evolution.run", None) != "auto":
+        return
+    n = None
+    for p in (parts / "manifest.json" if parts else None, Path(str(source) + ".json") if source else None):
+        if p is not None and p.exists() and not getattr(args, "restart", False):
+            try:
+                d = json.loads(p.read_text())
+                n = int(((d.get("cfg") or d.get("template") or {}).get("evolution") or {}).get("run"))
+                break
+            except (ValueError, TypeError):
+                n = None
+    if n is None:
+        import secrets
+        n = 100000 + secrets.randbelow(900000)
+    cfg.setdefault("evolution", {})["run"] = n
+    args.set = list(args.set or []) + [f"evolution.run={n}"]
+    log(f"evolution: run {n} (to see this run again: --set evolution.run={n})")
+
+
 def _title(path: Path, given: str | None) -> str:
     return given or path.stem
 
@@ -116,6 +139,10 @@ def cmd_render(args) -> int:
     ext = encode.container_for(args.quality, acodec)
     out = Path(args.output).expanduser() if args.output else Path("out") / f"{src.stem}.{cfg.get('name', 'render')}{ext}"
     out.parent.mkdir(parents=True, exist_ok=True)
+    if scenes.engine_of(cfg) == "crucible":
+        _run_number(cfg, args, parts=out.with_name(out.name + ".parts"))
+        cfg.update(_user_seed=args.seed, _evolve_all=True, _cpu=args.cpu,
+                   _span=[args.start, args.start + info.duration])
 
     enc_cfg = cfg.get("encode", {}) or {}
     if args.crf is None and args.quality in ("youtube", "high"):
@@ -274,6 +301,9 @@ def cmd_still(args) -> int:
     from .timeline import Timeline
     src = Path(args.audio).expanduser().resolve()
     cfg = config.resolve(args.template, args.params, _kw(args.keywords), args.set or [])
+    if scenes.engine_of(cfg) == "crucible":
+        _run_number(cfg, args)
+        cfg["_user_seed"] = args.seed
     an, ah, _ = get_analysis(src, args.start, args.duration, cfg.get("bands"), args.no_cache)
     scenes.prepare(cfg, src, ah, args.start, CACHE_DIR, log)
     fps = float(args.fps)
@@ -311,6 +341,9 @@ def cmd_reel(args) -> int:
     src = Path(args.audio).expanduser().resolve()
     cfg = config.resolve(args.template, args.params, _kw(args.keywords), args.set or [])
     name = cfg.get("name", "render")
+    if scenes.engine_of(cfg) == "crucible":
+        _run_number(cfg, args, source=Path(args.source) if args.source else Path("out") / f"{src.stem}.{name}.mov")
+        cfg["_user_seed"] = args.seed
     an, ah, _ = get_analysis(src, 0.0, None, cfg.get("bands"), args.no_cache)
     scenes.prepare(cfg, src, ah, 0.0, CACHE_DIR, log)
     ex = None
